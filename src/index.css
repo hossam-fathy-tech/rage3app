@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Marhey:wght@300..700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 220 40% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 10%;
+
+    --primary: 220 75% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 199 80% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 20% 93%;
+    --muted-foreground: 215 20% 50%;
+
+    --accent: 158 60% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 25% 88%;
+    --input: 214 25% 88%;
+    --ring: 220 75% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 30% 14%;
+    --sidebar-foreground: 210 40% 92%;
+    --sidebar-primary: 199 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 30% 20%;
+    --sidebar-accent-foreground: 210 40% 92%;
+    --sidebar-border: 220 25% 22%;
+    --sidebar-ring: 199 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Marhey', 'Cairo', sans-serif;
+    direction: rtl;
+  }
+
+  html {
+    direction: rtl;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg;
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(220, 75%, 40%) 0%, hsl(199, 80%, 45%) 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(220, 75%, 18%) 0%, hsl(220, 60%, 30%) 40%, hsl(199, 80%, 35%) 100%);
+  }
+
+  .subject-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  .nav-link {
+    @apply text-white/80 hover:text-white transition-colors duration-200 font-medium;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-blue-700 transition-all duration-200 font-semibold px-6 py-3 rounded-xl;
+  }
+
+  .progress-bar {
+    @apply h-2 rounded-full bg-muted overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full bg-gradient-to-r from-blue-500 to-teal-500 transition-all duration-500;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm text-right transition-colors;
+  }
+}
+
+/* ── YouTube Player fullscreen chapters panel ── */
+:fullscreen .yt-chapters-panel {
+  display: flex;
+}
+
+/* smooth slide for chapters panel */
+.chapters-slide-enter {
+  transform: translateX(100%);
+}
+.chapters-slide-enter-active {
+  transform: translateX(0);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.chapters-slide-exit {
+  transform: translateX(0);
+}
+.chapters-slide-exit-active {
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* hide scrollbar but keep scroll in chapters panel */
+.chapters-list::-webkit-scrollbar {
+  width: 4px;
+}
+.chapters-list::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+}
+.chapters-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+}
+.chapters-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.25);
+}
