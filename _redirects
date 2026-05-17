@@ -1,2 +1,7 @@
-# Cloudflare Pages handles SPA routing automatically
-# This file is not needed for Cloudflare Pages
+# Cloudflare Pages configuration
+
+# Serve sitemap with correct content type
+/sitemap.xml /sitemap.xml 200
+
+# Serve robots.txt
+/robots.txt /robots.txt 200
