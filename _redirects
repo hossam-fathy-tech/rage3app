@@ -1,7 +1,0 @@
-# Cloudflare Pages configuration
-
-# Serve sitemap with correct content type
-/sitemap.xml /sitemap.xml 200
-
-# Serve robots.txt
-/robots.txt /robots.txt 200
