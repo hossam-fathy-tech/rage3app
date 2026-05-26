@@ -31,6 +31,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user_metadata?: Record<string, unknown>;
   }): Promise<AuthUser> => {
     const base = mapUser(supabaseUser);
+    
+    // Fetch role from profiles table
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", supabaseUser.id)
+        .maybeSingle();
+      
+      if (profile?.role) {
+        base.role = profile.role;
+      }
+    } catch {
+      // Ignore profile fetch errors
+    }
+
     if (base.email) {
       const expiresAt = await fetchCodeExpiry(base.email);
       return { ...base, codeExpiresAt: expiresAt };

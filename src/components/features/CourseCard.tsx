@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
-import { PlayCircle, User, BookMarked } from "lucide-react";
+import { PlayCircle, User, BookMarked, Star, Flame, Clock } from "lucide-react";
 import type { Course } from "@/types/db";
+
+const highlightConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
+  important: { label: "مهم", bg: "bg-blue-500", text: "text-blue-600", icon: Star },
+  review: { label: "مراجعة نهائية", bg: "bg-orange-500", text: "text-orange-600", icon: Flame },
+  exam: { label: "ليلة الامتحان", bg: "bg-red-500", text: "text-red-600", icon: Clock },
+};
 
 const colorPalette = [
   "from-blue-500 to-blue-700",
@@ -45,6 +51,19 @@ const CourseCard = ({ course, progress }: CourseCardProps) => {
           {subject && (
             <div className={`absolute top-3 right-3 text-xs font-bold px-3 py-1 rounded-full bg-gradient-to-r ${subjectColor} text-white shadow`}>
               {subject.name}
+            </div>
+          )}
+          {/* Highlight Badge */}
+          {course.highlight && highlightConfig[course.highlight] && (
+            <div className={`absolute bottom-3 right-3 text-xs font-bold px-3 py-1.5 rounded-full ${highlightConfig[course.highlight].bg} text-white shadow-lg flex items-center gap-1`}>
+              {(() => { const Icon = highlightConfig[course.highlight!].icon; return <Icon className="w-3.5 h-3.5" />; })()}
+              {highlightConfig[course.highlight].label}
+            </div>
+          )}
+          {/* Price Badge */}
+          {course.is_paid && (
+            <div className="absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full bg-amber-500 text-white shadow flex items-center gap-1">
+              <span>{course.price} جنيه</span>
             </div>
           )}
           {!course.is_published && (

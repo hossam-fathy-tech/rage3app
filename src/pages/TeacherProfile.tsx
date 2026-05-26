@@ -1,7 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { ArrowRight, BookMarked, Users, Clock, PlayCircle, ChevronLeft, Loader2 } from "lucide-react";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import CourseCard from "@/components/features/CourseCard";
 import { useTeacher, useCoursesByTeacher } from "@/hooks/useData";
 
@@ -33,7 +32,7 @@ const TeacherProfile = () => {
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <Header />
-      <main className="pt-16">
+      <main className="lg:mr-[260px] pt-16">
         {/* Breadcrumb */}
         <div className="bg-white border-b border-border px-4 sm:px-6 lg:px-8 py-3">
           <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm text-muted-foreground">

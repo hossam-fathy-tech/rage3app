@@ -8,6 +8,9 @@ export interface AuthUser {
   avatar?: string;
   role?: string;
   codeExpiresAt?: string;
+  teacherId?: string;
+  subjectId?: string;
+  track?: string;
 }
 
 export interface AuthContextType {
@@ -35,6 +38,7 @@ export function mapUser(user: {
       "user",
     avatar: meta.avatar_url as string | undefined,
     role: meta.role as string | undefined,
+    track: meta.track as string | undefined,
   };
 }
 

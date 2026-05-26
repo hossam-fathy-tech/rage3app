@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { GraduationCap, Heart } from "lucide-react";
+import { GraduationCap, Heart, Mail, Phone, Globe } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -26,24 +26,33 @@ const Footer = () => {
               <li><Link to="/" className="hover:text-white transition-colors">الرئيسية</Link></li>
               <li><Link to="/subjects" className="hover:text-white transition-colors">المواد الدراسية</Link></li>
               <li><Link to="/courses" className="hover:text-white transition-colors">الكورسات</Link></li>
-              <li><Link to="/admin" className="hover:text-white transition-colors">لوحة التحكم</Link></li>
+              <li><Link to="/challenges" className="hover:text-white transition-colors">التحديات</Link></li>
             </ul>
           </div>
 
           {/* Contact */}
           <div>
             <h4 className="text-white font-bold mb-4">تواصل معنا</h4>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>📧 info@raga3.app</li>
-              <li>📱 01000000000</li>
-              <li>🌐 raga3.onspace.app</li>
+            <ul className="space-y-3 text-sm text-gray-400">
+              <li className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-emerald-500" />
+                <a href="mailto:rage3app@gmail.com" className="hover:text-white transition-colors">rage3app@gmail.com</a>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-emerald-500" />
+                <span>01000000000</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-500" />
+                <span>raga3.onspace.app</span>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">
-            © 2024 منصة راجع. جميع الحقوق محفوظة.
+            © 2025 منصة راجع. جميع الحقوق محفوظة.
           </p>
           <p className="text-sm text-gray-500 flex items-center gap-1">
             صُنع بـ <Heart className="w-4 h-4 text-red-400 fill-red-400" /> من أجل طلاب مصر

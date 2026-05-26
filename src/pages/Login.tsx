@@ -1,11 +1,25 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Key } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Key, FlaskConical, Calculator, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth, mapUser } from "@/lib/auth";
 
-type LoginMode = "signin" | "register" | "code";
+type LoginMode = "signin" | "register" | "code" | "track-select";
+
+type TrackOption = {
+  id: string;
+  name: string;
+  icon: React.ElementType;
+  description: string;
+  color: string;
+};
+
+const trackOptions: TrackOption[] = [
+  { id: "science_bio", name: "علمي علوم", icon: FlaskConical, description: "فيزياء • كيمياء • أحياء", color: "from-green-500 to-emerald-600" },
+  { id: "science_math", name: "علمي رياضة", icon: Calculator, description: "فيزياء • كيمياء • تفاضل", color: "from-blue-500 to-indigo-600" },
+  { id: "literary", name: "أدبي", icon: BookOpen, description: "تاريخ • جغرافيا • فلسفة", color: "from-purple-500 to-pink-600" },
+];
 
 interface CodeData {
   id: string;
@@ -30,6 +44,8 @@ const Login = () => {
   const [code, setCode] = useState("");
   const [codePassword, setCodePassword] = useState("");
   const [showCodePass, setShowCodePass] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<string>("");
+  const [pendingAuthData, setPendingAuthData] = useState<any>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -157,9 +173,8 @@ const Login = () => {
       }
 
       if (data.user && data.session) {
-        login(mapUser(data.user));
-        toast.success("تم إنشاء الحساب بنجاح!");
-        navigate("/", { replace: true });
+        setPendingAuthData(data);
+        setMode("track-select");
       } else if (data.user && !data.session) {
         toast.info("تم إنشاء الحساب! تحقق من بريدك الإلكتروني لتأكيد الحساب");
         setMode("signin");
@@ -219,18 +234,33 @@ const Login = () => {
       });
 
       if (signInData.user && signInData.session) {
-        await supabase
-          .from("user_codes")
-          .update({ is_used: true, used_at: new Date().toISOString() })
-          .eq("id", codeData.id);
-        login(mapUser(signInData.user));
+        // Teacher codes work forever, student codes are one-time use
+        if (codeData.user_type !== 'teacher') {
+          await supabase
+            .from("user_codes")
+            .update({ is_used: true, used_at: new Date().toISOString() })
+            .eq("id", codeData.id);
+        }
+        
+        // Store teacher info in session
+        const enrichedUser = mapUser(signInData.user);
+        if (codeData.user_type === 'teacher') {
+          enrichedUser.role = 'teacher';
+          enrichedUser.teacherId = codeData.teacher_id;
+          enrichedUser.subjectId = codeData.subject_id;
+        }
+        login(enrichedUser);
+        
         toast.success("مرحباً بك!");
+        
         navigate("/", { replace: true });
         return;
       }
 
-      // If sign in failed, try creating the account with the password user entered
-      if (signInError && (signInError.message.includes("Invalid login credentials") || signInError.status === 400)) {
+      // If sign in failed, try creating the account
+      if (signInError) {
+        const userType = codeData.user_type || 'student';
+        
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: codeData.user_email.toLowerCase(),
           password: codePassword,
@@ -238,21 +268,23 @@ const Login = () => {
             data: {
               username: codeData.user_name || codeData.user_email.split("@")[0],
               full_name: codeData.user_name || codeData.user_email.split("@")[0],
+              role: userType,
             },
             emailRedirectTo: window.location.origin,
           },
         });
 
+        // If account already exists, the student already registered - tell them to use their password
+        if (signUpError && (
+          signUpError.message.includes("already") ||
+          signUpError.message.includes("registered")
+        )) {
+          toast.error("هذا الكود تم استخدامه بالفعل. سجل الدخول بالإيميل وكلمة المرور من شاشة تسجيل الدخول");
+          setLoading(false);
+          return;
+        }
+
         if (signUpError) {
-          if (
-            signUpError.message.includes("already been registered") ||
-            signUpError.message.includes("already registered") ||
-            signUpError.message.includes("User already registered")
-          ) {
-            toast.error("الحساب موجود بالفعل، جرب تسجيل الدخول بكلمة مرورك");
-            setLoading(false);
-            return;
-          }
           console.error("SignUp error:", signUpError);
           toast.error(`خطأ: ${signUpError.message}`);
           setLoading(false);
@@ -261,24 +293,44 @@ const Login = () => {
 
         if (signUpData.user && signUpData.session) {
           await supabase
-            .from("user_codes")
-            .update({ is_used: true, used_at: new Date().toISOString() })
-            .eq("id", codeData.id);
-          login(mapUser(signUpData.user));
+            .from("profiles")
+            .upsert({ id: signUpData.user.id, role: userType, email: codeData.user_email.toLowerCase() });
+          
+          if (userType !== 'teacher') {
+            await supabase
+              .from("user_codes")
+              .update({ is_used: true, used_at: new Date().toISOString() })
+              .eq("id", codeData.id);
+          }
+          
+          const enrichedUser = mapUser(signUpData.user);
+          enrichedUser.role = userType;
+          if (userType === 'teacher') {
+            enrichedUser.teacherId = codeData.teacher_id;
+            enrichedUser.subjectId = codeData.subject_id;
+          }
+          login(enrichedUser);
+          
           toast.success("مرحباً بك!");
+          
           navigate("/", { replace: true });
         } else if (signUpData.user && !signUpData.session) {
           await supabase
-            .from("user_codes")
-            .update({ is_used: true, used_at: new Date().toISOString() })
-            .eq("id", codeData.id);
+            .from("profiles")
+            .upsert({ id: signUpData.user.id, role: userType, email: codeData.user_email.toLowerCase() });
+            
+          if (userType !== 'teacher') {
+            await supabase
+              .from("user_codes")
+              .update({ is_used: true, used_at: new Date().toISOString() })
+              .eq("id", codeData.id);
+          }
+          
           toast.success("تم إنشاء الحساب! تحقق من إيميلك لتأكيد الحساب");
+          setMode("signin");
           setCode("");
           setCodePassword("");
         }
-      } else if (signInError) {
-        console.error("SignIn error:", signInError);
-        toast.error("حدث خطأ، حاول مرة أخرى");
       }
     } catch {
       console.error("Code login error");
@@ -307,9 +359,110 @@ const Login = () => {
     setCodePassword("");
     setShowPass(false);
     setShowCodePass(false);
+    setSelectedTrack("");
+    setPendingAuthData(null);
+  };
+
+  const handleTrackSelect = async () => {
+    if (!selectedTrack) {
+      toast.error("اختر شعبتك أولاً");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Save track to profiles table
+      await supabase
+        .from("profiles")
+        .upsert({ 
+          id: pendingAuthData.user.id, 
+          track: selectedTrack,
+          email: pendingAuthData.user.email 
+        });
+
+      // Update user metadata
+      await supabase.auth.updateUser({
+        data: { track: selectedTrack }
+      });
+
+      login(mapUser(pendingAuthData.user));
+      toast.success("تم تحديد الشعبة بنجاح! 🎓");
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Track selection error:", error);
+      toast.error("حدث خطأ، حاول مرة أخرى");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderForm = () => {
+    if (mode === "track-select") {
+      return (
+        <div className="space-y-4">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <GraduationCap className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800">اختر شعبتك الدراسية</h3>
+            <p className="text-sm text-gray-500 mt-1">هذه الخطوة مهمة لعرض المحتوى المناسب لك</p>
+          </div>
+          
+          <div className="space-y-3">
+            {trackOptions.map((track) => {
+              const Icon = track.icon;
+              const isSelected = selectedTrack === track.id;
+              return (
+                <button
+                  key={track.id}
+                  type="button"
+                  onClick={() => setSelectedTrack(track.id)}
+                  className={`w-full p-4 rounded-2xl border-2 transition-all duration-200 text-right ${
+                    isSelected
+                      ? `border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100`
+                      : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${track.color} flex items-center justify-center flex-shrink-0`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-800">{track.name}</p>
+                      <p className="text-xs text-gray-500">{track.description}</p>
+                    </div>
+                    {isSelected && (
+                      <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleTrackSelect}
+            disabled={!selectedTrack || loading}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 mt-6"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                متابعة
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
+          </button>
+        </div>
+      );
+    }
+
     if (mode === "code") {
       return (
         <>
@@ -420,6 +573,8 @@ const Login = () => {
         return "إنشاء حساب";
       case "code":
         return "دخول بالكود";
+      case "track-select":
+        return "متابعة";
       default:
         return "تسجيل الدخول";
     }
@@ -471,91 +626,101 @@ const Login = () => {
 
           <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              {mode === "code" ? "دخول بكود" : mode === "register" ? "إنشاء حساب" : "تسجيل الدخول"}
+              {mode === "code" ? "دخول بكود" : mode === "register" ? "إنشاء حساب" : mode === "track-select" ? "تحديد الشعبة" : "تسجيل الدخول"}
             </h2>
             <p className="text-gray-500 text-sm mb-8">
-              {mode === "code" ? "أدخل الكود وكلمة المرور" : mode === "register" ? "انضم لألف الطلاب المتميزين" : "سعدنا بعودتك! أدخل بياناتك"}
+              {mode === "code" ? "أدخل الكود وكلمة المرور" : mode === "register" ? "انضم لألف الطلاب المتميزين" : mode === "track-select" ? "اختر شعبتك الدراسية للمتابعة" : "سعدنا بعودتك! أدخل بياناتك"}
             </p>
 
-            <form onSubmit={handleSubmit}>
+            {mode === "track-select" ? (
               <div className="space-y-5">
                 {renderForm()}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      {getButtonText()}
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )}
-                </button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-5">
+                  {renderForm()}
 
-            {mode === "signin" && (
-              <>
-                <div className="flex items-center gap-4 my-6">
-                  <div className="flex-1 h-px bg-gray-200"></div>
-                  <span className="text-sm text-gray-400">أو</span>
-                  <div className="flex-1 h-px bg-gray-200"></div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        {getButtonText()}
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
                 </div>
+              </form>
+            )}
 
-                <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-4 rounded-2xl transition-all duration-200"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    دخول بـ Google
-                  </button>
+            {mode !== "track-select" && (
+              <>
+                {mode === "signin" && (
+                  <>
+                    <div className="flex items-center gap-4 my-6">
+                      <div className="flex-1 h-px bg-gray-200"></div>
+                      <span className="text-sm text-gray-400">أو</span>
+                      <div className="flex-1 h-px bg-gray-200"></div>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => switchMode("code")}
-                    className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-4 rounded-2xl transition-all duration-200"
-                  >
-                    <Key className="w-5 h-5" />
-                    دخول بكود
-                  </button>
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-4 rounded-2xl transition-all duration-200"
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        دخول بـ Google
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => switchMode("code")}
+                        className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-4 rounded-2xl transition-all duration-200"
+                      >
+                        <Key className="w-5 h-5" />
+                        دخول بكود
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                <div className="mt-8 text-center">
+                  {mode === "code" ? (
+                    <p className="text-gray-600">
+                      <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                        رجوع لتسجيل الدخول
+                      </button>
+                    </p>
+                  ) : mode === "signin" ? (
+                    <p className="text-gray-600">
+                      ما عندك حساب؟{" "}
+                      <button type="button" onClick={() => switchMode("register")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                        إنشاء حساب
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="text-gray-600">
+                      عندك حساب؟{" "}
+                      <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                        تسجيل الدخول
+                      </button>
+                    </p>
+                  )}
                 </div>
               </>
             )}
-
-            <div className="mt-8 text-center">
-              {mode === "code" ? (
-                <p className="text-gray-600">
-                  <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
-                    رجوع لتسجيل الدخول
-                  </button>
-                </p>
-              ) : mode === "signin" ? (
-                <p className="text-gray-600">
-                  ما عندك حساب؟{" "}
-                  <button type="button" onClick={() => switchMode("register")} className="text-emerald-600 font-semibold hover:text-emerald-700">
-                    إنشاء حساب
-                  </button>
-                </p>
-              ) : (
-                <p className="text-gray-600">
-                  عندك حساب؟{" "}
-                  <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
-                    تسجيل الدخول
-                  </button>
-                </p>
-              )}
-            </div>
           </div>
 
           <p className="text-center text-gray-400 text-xs mt-6">

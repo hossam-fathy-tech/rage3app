@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/components/features/AuthProvider";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import Index from "./pages/Index";
 import Subjects from "./pages/Subjects";
 import Courses from "./pages/Courses";
@@ -13,10 +14,15 @@ import CourseDetail from "./pages/CourseDetail";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import TeacherProfile from "./pages/TeacherProfile";
+
+import WalletPage from "./pages/WalletPage";
 import Challenges from "./pages/Challenges";
 import UserProfile from "./pages/UserProfile";
 import NotFound from "./pages/NotFound";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import QuestionsPage from "./pages/QuestionsPage";
+import SummariesPage from "./pages/SummariesPage";
+import BottomNav from "./components/layout/BottomNav";
+import { Lock, Eye, EyeOff, Wrench } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -127,21 +133,124 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => {
-  const isUnderMaintenance = localStorage.getItem("site_under_maintenance") === "true";
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [platformName, setPlatformName] = useState("راجع");
 
-  if (isUnderMaintenance) {
+  useEffect(() => {
+    // Fetch initial platform settings
+    supabase
+      .from("platform_settings")
+      .select("maintenance_mode, platform_name")
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setMaintenanceMode(data.maintenance_mode);
+          if (data.platform_name) {
+            setPlatformName(data.platform_name);
+            document.title = `${data.platform_name} - منصة تعليمية للثانوية العامة`;
+          }
+        }
+      });
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel("platform_settings_changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "platform_settings" },
+        (payload) => {
+          if (payload.new.maintenance_mode !== undefined) {
+            setMaintenanceMode(payload.new.maintenance_mode);
+          }
+          if (payload.new.platform_name) {
+            setPlatformName(payload.new.platform_name);
+            document.title = `${payload.new.platform_name} - منصة تعليمية للثانوية العامة`;
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Show maintenance screen if enabled AND user is not admin (admin can still access /admin)
+  // Note: We allow access to /admin even in maintenance mode so admin can disable it
+  const isOnAdminRoute = window.location.pathname === "/admin";
+  
+  if (maintenanceMode && !isOnAdminRoute) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100" dir="rtl">
-        <div className="text-center p-8">
-          <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden" dir="rtl">
+        {/* Animated Background Orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
+
+        {/* Floating Particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 bg-amber-400/30 rounded-full animate-bounce"
+              style={{
+                left: `${15 + i * 15}%`,
+                top: `${20 + (i % 3) * 25}%`,
+                animationDelay: `${i * 0.3}s`,
+                animationDuration: `${2 + i * 0.5}s`
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 text-center p-8 max-w-lg mx-auto">
+          {/* Animated Icon Container */}
+          <div className="relative mb-8">
+            <div className="w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto shadow-2xl shadow-amber-500/30 animate-pulse">
+              <Wrench className="w-16 h-16 text-white" />
+            </div>
+            {/* Rotating Ring */}
+            <div className="absolute inset-0 w-32 h-32 mx-auto border-4 border-amber-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }} />
+            <div className="absolute inset-0 w-32 h-32 mx-auto border-4 border-dashed border-amber-400/20 rounded-full animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">المنصة تحت الصيانة</h1>
-          <p className="text-gray-600 text-lg">سنعود قريباً...</p>
-          <p className="text-gray-500 mt-2 text-sm">يرجى المعودة لاحقاً</p>
+
+          {/* Title with Gradient */}
+          <h1 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-300 to-amber-400 mb-4">
+            المنصة تحت الصيانة
+          </h1>
+
+          {/* Description */}
+          <p className="text-slate-300 text-lg mb-8 leading-relaxed">
+            نقوم ببعض التحسينات والتحديثات المهمة<br />
+            <span className="text-amber-400 font-medium">سنعود أقوى مما كنا! 🚀</span>
+          </p>
+
+          {/* Loading Bar */}
+          <div className="w-full max-w-xs mx-auto mb-8">
+            <div className="flex justify-between text-xs text-slate-400 mb-2">
+              <span>جاري التحديث...</span>
+              <span>99%</span>
+            </div>
+            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full animate-pulse" style={{ width: '99%' }} />
+            </div>
+          </div>
+
+          {/* Contact Info */}
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-slate-700">
+            <p className="text-sm text-slate-400">
+              للاستفسارات الطارئة:
+              <a href="mailto:rage3app@gmail.com" className="text-amber-400 hover:text-amber-300 underline mr-1">
+                rage3app@gmail.com
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -160,12 +269,18 @@ const App = () => {
               <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
               <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
               <Route path="/course/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
+
+
+              <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
               <Route path="/teacher/:id" element={<ProtectedRoute><TeacherProfile /></ProtectedRoute>} />
               <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+              <Route path="/questions" element={<QuestionsPage />} />
+              <Route path="/summaries" element={<SummariesPage />} />
               <Route path="/admin" element={<ProtectedAdmin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <BottomNav />
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

@@ -7,6 +7,7 @@ export interface Subject {
   icon: string;
   color: string;
   order_index: number;
+  tracks?: string[];
   created_at: string;
 }
 
@@ -30,6 +31,7 @@ export interface Course {
   duration: string;
   order_index: number;
   is_published: boolean;
+  highlight?: string; // 'important' | 'review' | 'exam'
   created_at: string;
   // joined relations
   subject?: Subject;
@@ -45,6 +47,7 @@ export interface Lecture {
   order_index: number;
   duration: string;
   is_preview: boolean;
+  highlight?: string; // 'important' | 'review' | 'exam'
   created_at: string;
   lessons?: Lesson[];
 }
@@ -169,8 +172,63 @@ export interface AppUser {
   email: string;
   full_name: string | null;
   role: string | null;
-  expires_at: string | null; // ISO timestamp
+  expires_at: string | null;
   is_active: boolean;
   created_at: string;
-  created_by: string | null; // ID of admin who created
+  created_by: string | null;
+}
+
+// ─── QUESTION BANK ──────────────────────────────────────────────────────────────
+
+export interface Question {
+  id: string;
+  lecture_id: string;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: string; // 'a' | 'b' | 'c' | 'd'
+  explanation: string;
+  difficulty: string; // 'easy' | 'medium' | 'hard'
+  order_index: number;
+  created_at: string;
+}
+
+export interface UserAnswer {
+  id: string;
+  user_id: string;
+  question_id: string;
+  selected_answer: string;
+  is_correct: boolean;
+  created_at: string;
+}
+
+// ─── SUMMARIES ──────────────────────────────────────────────────────────────────
+
+export interface Summary {
+  id: string;
+  lecture_id: string;
+  title: string;
+  file_url: string;
+  file_type: string; // 'file' | 'link'
+  file_size: number;
+  order_index: number;
+  created_at: string;
+}
+
+// ─── HOME BLOCKS ────────────────────────────────────────────────────────────────
+
+export interface HomeBlock {
+  id: string;
+  type: 'hero' | 'post' | 'offer' | 'featured' | 'announcement';
+  title: string;
+  content: string;
+  image_url: string;
+  link_url: string;
+  highlight: string;
+  tracks: string[];
+  is_visible: boolean;
+  order_index: number;
+  created_at: string;
 }

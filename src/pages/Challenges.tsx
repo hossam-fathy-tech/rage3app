@@ -485,7 +485,7 @@ const Challenges = () => {
     return (
       <div className="min-h-screen bg-background" dir="rtl">
         <Header />
-        <main className="pt-16">
+        <main className="lg:mr-[260px] pt-16">
           <div className="min-h-[70vh] flex items-center justify-center px-4">
             <div className="text-center max-w-md">
               <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
@@ -516,7 +516,7 @@ const Challenges = () => {
         />
       )}
 
-      <main className="pt-16">
+      <main className="lg:mr-[260px] pt-16">
         {/* All Challenges List */}
         {allChallenges.length > 0 && (
           <div className="bg-white border-b border-border">

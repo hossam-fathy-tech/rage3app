@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, Filter, Loader2 } from "lucide-react";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import CourseCard from "@/components/features/CourseCard";
 import { useCourses, useSubjects, useTeachers } from "@/hooks/useData";
+import { useAuth } from "@/lib/auth";
 
 const Courses = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialSubject = searchParams.get("subject") || "all";
 
@@ -18,15 +19,27 @@ const Courses = () => {
   const { data: subjects = [] } = useSubjects();
   const { data: teachers = [] } = useTeachers();
 
-  const filtered = courses.filter((c) => {
-    const matchSubject = selectedSubject === "all" || c.subject_id === selectedSubject;
-    const matchTeacher =
-      selectedTeacher === "all" ||
-      (c.teachers ?? []).some((t) => t.id === selectedTeacher);
-    const matchSearch =
-      c.title.includes(search) || (c.description || "").includes(search);
-    return matchSubject && matchTeacher && matchSearch;
-  });
+  const subjectTrackMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    subjects.forEach((s: any) => {
+      if (s.tracks) map[s.id] = s.tracks;
+    });
+    return map;
+  }, [subjects]);
+
+  const filtered = useMemo(() => {
+    return courses.filter((c) => {
+      const matchSubject = selectedSubject === "all" || c.subject_id === selectedSubject;
+      const matchTeacher =
+        selectedTeacher === "all" ||
+        (c.teachers ?? []).some((t) => t.id === selectedTeacher);
+      const matchSearch =
+        c.title.includes(search) || (c.description || "").includes(search);
+      const subjectTracks = subjectTrackMap[c.subject_id];
+      const matchTrack = !user?.track || !subjectTracks || subjectTracks.includes(user.track);
+      return matchSubject && matchTeacher && matchSearch && matchTrack;
+    });
+  }, [courses, selectedSubject, selectedTeacher, search, subjectTrackMap, user?.track]);
 
   const reset = () => {
     setSearch("");
@@ -37,7 +50,7 @@ const Courses = () => {
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <Header />
-      <main className="pt-24 pb-16">
+      <main className="lg:mr-[260px] pt-16 pb-24 lg:pb-16 px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="gradient-hero py-14">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

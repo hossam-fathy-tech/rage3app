@@ -5,6 +5,7 @@ export interface Subject {
   color: string;
   description: string;
   courseCount: number;
+  tracks?: string[];
 }
 
 export interface Teacher {

@@ -1085,3 +1085,226 @@ export function useUserSessions() {
     },
   });
 }
+
+// ─── ACTIVITIES ─────────────────────────────────────────────────────────────────
+
+export function useActivities() {
+  return useQuery({
+    queryKey: ["activities"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// ─── QUESTIONS ─────────────────────────────────────────────────────────────────
+
+export function useQuestions(lectureId: string) {
+  return useQuery({
+    queryKey: ["questions", lectureId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("lecture_id", lectureId)
+        .order("order_index", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!lectureId,
+  });
+}
+
+export function useCreateQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { lecture_id: string; question_text: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_answer: string; explanation: string; difficulty: string; order_index: number }) => {
+      const { data, error } = await supabase.from("questions").insert(payload).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["questions", vars.lecture_id] }),
+  });
+}
+
+export function useUpdateQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string } & Partial<{ lecture_id: string; question_text: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_answer: string; explanation: string; difficulty: string; order_index: number }>) => {
+      const { data, error } = await supabase.from("questions").update(payload).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => qc.invalidateQueries({ queryKey: ["questions", data.lecture_id] }),
+  });
+}
+
+export function useDeleteQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, lectureId }: { id: string; lectureId: string }) => {
+      const { error } = await supabase.from("questions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["questions", vars.lectureId] }),
+  });
+}
+
+// ─── USER ANSWERS ──────────────────────────────────────────────────────────────
+
+export function useUserAnswers(userId: string) {
+  return useQuery({
+    queryKey: ["user-answers", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_answers")
+        .select("*")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useSubmitAnswer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { user_id: string; question_id: string; selected_answer: string; is_correct: boolean }) => {
+      const { data, error } = await supabase.from("user_answers").insert(payload).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["user-answers", data.user_id] });
+    },
+  });
+}
+
+// ─── SUMMARIES ─────────────────────────────────────────────────────────────────
+
+export function useSummaries(lectureId: string) {
+  return useQuery({
+    queryKey: ["summaries", lectureId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("summaries")
+        .select("*")
+        .eq("lecture_id", lectureId)
+        .order("order_index", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!lectureId,
+  });
+}
+
+export function useCreateSummary() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { lecture_id: string; title: string; file_url: string; file_type?: string; file_size: number; order_index: number }) => {
+      const { data, error } = await supabase.from("summaries").insert(payload).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["summaries", vars.lecture_id] }),
+  });
+}
+
+export function useDeleteSummary() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, lectureId }: { id: string; lectureId: string }) => {
+      const { error } = await supabase.from("summaries").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["summaries", vars.lectureId] }),
+  });
+}
+
+// ─── HOME BLOCKS ───────────────────────────────────────────────────────────────
+
+export function useHomeBlocks(userTrack?: string) {
+  return useQuery({
+    queryKey: ["home-blocks", userTrack],
+    queryFn: async () => {
+      let query = supabase
+        .from("home_blocks")
+        .select("*")
+        .eq("is_visible", true)
+        .order("order_index", { ascending: true });
+      
+      if (userTrack) {
+        query = query.or(`tracks.is.null,tracks.cs.{"${userTrack}"}`);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useAllHomeBlocks() {
+  return useQuery({
+    queryKey: ["admin-home-blocks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("home_blocks")
+        .select("*")
+        .order("order_index", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateHomeBlock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { type: string; title: string; content: string; image_url: string; link_url: string; highlight: string; tracks: string[]; order_index: number }) => {
+      const { data, error } = await supabase.from("home_blocks").insert(payload).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["home-blocks"] });
+      qc.invalidateQueries({ queryKey: ["admin-home-blocks"] });
+    },
+  });
+}
+
+export function useUpdateHomeBlock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string } & Partial<{ type: string; title: string; content: string; image_url: string; link_url: string; highlight: string; tracks: string[]; is_visible: boolean; order_index: number }>) => {
+      const { data, error } = await supabase.from("home_blocks").update(payload).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["home-blocks"] });
+      qc.invalidateQueries({ queryKey: ["admin-home-blocks"] });
+    },
+  });
+}
+
+export function useDeleteHomeBlock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("home_blocks").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["home-blocks"] });
+      qc.invalidateQueries({ queryKey: ["admin-home-blocks"] });
+    },
+  });
+}

@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, Trash2, Plus, Edit3, ChevronLeft, GraduationCap,
   Loader2, X, Save, Youtube, ListVideo, Link2, CalendarCheck, Flame,
   BookMarked as ChaptersIcon, Clock, ToggleLeft, ToggleRight, Upload, ImageIcon,
-  Key,
+  Key, Wallet, Percent, Settings, Sparkles, FileText, HelpCircle, LayoutGrid, TrendingUp, DollarSign, Search, Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,10 +35,15 @@ import {
   useUpdateUser,
   useDeleteUser,
   useUserSessions,
+  // Home blocks
+  useAllHomeBlocks, useCreateHomeBlock, useUpdateHomeBlock, useDeleteHomeBlock,
+  // Questions & Summaries
+  useQuestions, useCreateQuestion, useUpdateQuestion, useDeleteQuestion,
+  useSummaries, useCreateSummary, useDeleteSummary,
 } from "@/hooks/useData";
 import type { Subject, Teacher, Course, Lecture, Challenge, ChallengeTask, VideoChapter, VideoLink, AppUser } from "@/types/db";
 
-type TabKey = "overview" | "subjects" | "teachers" | "courses" | "lectures" | "challenges" | "codes";
+type TabKey = "overview" | "subjects" | "teachers" | "courses" | "lectures" | "challenges" | "codes" | "recharge" | "discounts" | "questions" | "summaries" | "homepage" | "activities" | "settings" | "students" | "sales" | "notifications";
 
 // ─── MODALS ────────────────────────────────────────────────────────────────────
 
@@ -51,10 +56,20 @@ function SubjectModal({ onClose, initial }: { onClose: () => void; initial?: Sub
     icon: initial?.icon || "📚",
     color: initial?.color || "#1E3A8A",
     order_index: initial?.order_index ?? 0,
+    tracks: (initial as any)?.tracks || ["science-bio", "science-math", "literary"] as string[],
   });
+
+  const toggleTrack = (trackId: string) => {
+    const exists = form.tracks.includes(trackId);
+    setForm({
+      ...form,
+      tracks: exists ? form.tracks.filter((t) => t !== trackId) : [...form.tracks, trackId],
+    });
+  };
 
   const save = async () => {
     if (!form.name.trim()) { toast.error("اسم المادة مطلوب"); return; }
+    if (form.tracks.length === 0) { toast.error("يجب اختيار شعبة واحدة على الأقل"); return; }
     if (initial) {
       await update.mutateAsync({ id: initial.id, ...form });
       toast.success("تم تحديث المادة");
@@ -72,6 +87,41 @@ function SubjectModal({ onClose, initial }: { onClose: () => void; initial?: Sub
       </Field>
       <Field label="الوصف">
         <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field" rows={2} />
+      </Field>
+      <Field label="الشعب المستهدفة *">
+        <div className="space-y-2">
+          {[
+            { id: "science-bio", label: "علمي علوم", color: "bg-emerald-500" },
+            { id: "science-math", label: "علمي رياضة", color: "bg-blue-500" },
+            { id: "literary", label: "أدبي", color: "bg-amber-500" },
+          ].map((track) => (
+            <label
+              key={track.id}
+              className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                form.tracks.includes(track.id)
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={form.tracks.includes(track.id)}
+                onChange={() => toggleTrack(track.id)}
+                className="sr-only"
+              />
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                form.tracks.includes(track.id) ? `${track.color} border-transparent` : "border-gray-300"
+              }`}>
+                {form.tracks.includes(track.id) && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <span className="font-medium text-gray-700">{track.label}</span>
+            </label>
+          ))}
+        </div>
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="الأيقونة (emoji)">
@@ -149,6 +199,9 @@ function CourseModal({ onClose, initial }: { onClose: () => void; initial?: Cour
     duration: initial?.duration || "",
     order_index: initial?.order_index ?? 0,
     is_published: initial?.is_published ?? false,
+    is_paid: initial?.is_paid ?? false,
+    price: initial?.price?.toString() || "0",
+    highlight: (initial as any)?.highlight || "" as string,
     teacherIds: initial?.teachers?.map((t) => t.id) || [] as string[],
   });
 
@@ -181,12 +234,12 @@ function CourseModal({ onClose, initial }: { onClose: () => void; initial?: Cour
   const save = async () => {
     if (!form.title.trim()) { toast.error("عنوان الكورس مطلوب"); return; }
     if (!form.subject_id) { toast.error("اختر المادة الدراسية"); return; }
-    const { teacherIds, ...rest } = form;
+    const { teacherIds, is_paid, price, ...rest } = form;
     if (initial) {
-      await update.mutateAsync({ id: initial.id, ...rest, teacherIds });
+      await update.mutateAsync({ id: initial.id, ...rest, is_paid, price: parseFloat(price) || 0, teacherIds });
       toast.success("تم تحديث الكورس");
     } else {
-      await create.mutateAsync({ ...rest, teacherIds });
+      await create.mutateAsync({ ...rest, is_paid, price: parseFloat(price) || 0, teacherIds });
       toast.success("تمت إضافة الكورس");
     }
     onClose();
@@ -213,6 +266,27 @@ function CourseModal({ onClose, initial }: { onClose: () => void; initial?: Cour
       </div>
       <Field label="المدة">
         <input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} className="input-field" placeholder="مثال: 20 ساعة" />
+      </Field>
+      <Field label="تمييز المحتوى (Badge)">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { value: "", label: "بدون", color: "border-gray-300 bg-gray-50" },
+            { value: "important", label: "⭐ مهم", color: "border-blue-500 bg-blue-50" },
+            { value: "review", label: "🔥 مراجعة نهائية", color: "border-orange-500 bg-orange-50" },
+            { value: "exam", label: "⏰ ليلة الامتحان", color: "border-red-500 bg-red-50" },
+          ].map((h) => (
+            <button
+              key={h.value}
+              type="button"
+              onClick={() => setForm({ ...form, highlight: h.value })}
+              className={`p-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                form.highlight === h.value ? h.color : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {h.label}
+            </button>
+          ))}
+        </div>
       </Field>
       <Field label="صورة الكورس المصغرة">
         <div className="flex flex-col gap-2">
@@ -283,6 +357,21 @@ function CourseModal({ onClose, initial }: { onClose: () => void; initial?: Cour
           <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${form.is_published ? "right-0.5" : "left-0.5"}`} />
         </button>
       </div>
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-foreground">كورس مدفوع</label>
+        <button
+          type="button"
+          onClick={() => setForm({ ...form, is_paid: !form.is_paid })}
+          className={`relative w-10 h-5 rounded-full transition-colors ${form.is_paid ? "bg-amber-500" : "bg-muted-foreground/30"}`}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${form.is_paid ? "right-0.5" : "left-0.5"}`} />
+        </button>
+      </div>
+      {form.is_paid && (
+        <Field label="السعر (جنيه)">
+          <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="input-field" min="0" placeholder="0" />
+        </Field>
+      )}
       <SaveBtn isPending={create.isPending || update.isPending} onSave={save} />
     </ModalShell>
   );
@@ -593,6 +682,16 @@ const Admin = () => {
     { key: "lectures", label: "المحاضرات", icon: BookMarked },
     { key: "challenges", label: "التحديات", icon: CalendarCheck },
     { key: "codes", label: "أكواد الدخول", icon: Key },
+    { key: "recharge", label: "أكواد الشحن", icon: Wallet },
+    { key: "discounts", label: "أكواد الخصم", icon: Percent },
+    { key: "questions", label: "بنك الأسئلة", icon: HelpCircle },
+    { key: "summaries", label: "الملخصات", icon: FileText },
+    { key: "homepage", label: "الصفحة الرئيسية", icon: LayoutGrid },
+    { key: "activities", label: "النشاطات", icon: Sparkles },
+    { key: "settings", label: "الإعدادات", icon: Settings },
+    { key: "students", label: "الطلاب", icon: Users },
+    { key: "sales", label: "المبيعات", icon: TrendingUp },
+    { key: "notifications", label: "الإشعارات", icon: Bell },
   ];
 
   const stats = [
@@ -1065,6 +1164,46 @@ const Admin = () => {
           {activeTab === "codes" && (
             <CodesTab />
           )}
+          {/* Recharge Codes */}
+          {activeTab === "recharge" && (
+            <RechargeCodesTab />
+          )}
+          {/* Discount Codes */}
+          {activeTab === "discounts" && (
+            <DiscountCodesTab />
+          )}
+          {/* Question Bank */}
+          {activeTab === "questions" && (
+            <QuestionsTab />
+          )}
+          {/* Summaries */}
+          {activeTab === "summaries" && (
+            <SummariesTab />
+          )}
+          {/* Home Page Manager */}
+          {activeTab === "homepage" && (
+            <HomePageTab />
+          )}
+          {/* Activities */}
+          {activeTab === "activities" && (
+            <ActivitiesTab />
+          )}
+          {/* Settings */}
+          {activeTab === "settings" && (
+            <SettingsTab />
+          )}
+          {/* Students */}
+          {activeTab === "students" && (
+            <AdminStudentsTab />
+          )}
+          {/* Sales */}
+          {activeTab === "sales" && (
+            <AdminSalesTab />
+          )}
+          {/* Notifications */}
+          {activeTab === "notifications" && (
+            <NotificationsTab />
+          )}
        </div>
      </div>
    );
@@ -1083,7 +1222,8 @@ function CodesTab() {
     user_email: "",
     temp_password: "",
     duration_value: "30",
-    duration_unit: "minutes"
+    duration_unit: "minutes",
+    user_type: "student" as "student" | "teacher"
   });
   const [form, setForm] = useState({
     code: "",
@@ -1092,21 +1232,51 @@ function CodesTab() {
     duration_value: "30",
     duration_unit: "minutes", // minutes, hours, days, weeks, months
     temp_password: "",
-    password_mode: "auto" as "auto" | "custom"
+    password_mode: "auto" as "auto" | "custom",
+    user_type: "student" as "student" | "teacher",
+    teacher_id: "",
+    subject_id: ""
   });
+
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const [teachers, setTeachers] = useState<any[]>([]);
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const [subjects, setSubjects] = useState<any[]>([]);
 
   useEffect(() => {
     loadCodes();
+    loadTeachers();
+    loadSubjects();
   }, []);
+
+  const loadTeachers = async () => {
+    const { data } = await supabase.from("teachers").select("*").order("name");
+    if (data) setTeachers(data);
+  };
+
+  const loadSubjects = async () => {
+    const { data } = await supabase.from("subjects").select("*").order("name");
+    if (data) setSubjects(data);
+  };
 
   const loadCodes = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("user_codes")
-      .select("*")
+      .select(`
+        *,
+        teacher:teachers(name),
+        subject:subjects(name)
+      `)
       .order("created_at", { ascending: false });
+    
     setLoading(false);
-    if (!error) setCodes(data ?? []);
+    if (error) {
+      console.error("Error loading codes:", error);
+      toast.error("فشل في تحميل الأكواد: " + error.message);
+    } else {
+      setCodes(data ?? []);
+    }
   };
 
   const generateCode = () => {
@@ -1159,7 +1329,11 @@ function CodesTab() {
       user_email: form.user_email,
       user_name: form.user_name,
       temp_password: tempPassword,
-      expires_at: expiresAt
+      expires_at: form.user_type === "teacher" ? null : expiresAt,
+      user_type: form.user_type,
+      teacher_id: form.user_type === "teacher" ? form.teacher_id || null : null,
+      subject_id: form.user_type === "teacher" ? form.subject_id || null : null,
+      is_unlimited: form.user_type === "teacher"
     });
 
     if (error) {
@@ -1167,7 +1341,7 @@ function CodesTab() {
     } else {
       toast.success("تم إنشاء الكود بنجاح");
       setModal(null);
-      setForm({ code: "", user_name: "", user_email: "", duration_value: "30", duration_unit: "minutes", temp_password: "", password_mode: "auto" });
+      setForm({ code: "", user_name: "", user_email: "", duration_value: "30", duration_unit: "minutes", temp_password: "", password_mode: "auto", user_type: "student", teacher_id: "", subject_id: "" });
       loadCodes();
     }
   };
@@ -1216,7 +1390,8 @@ function CodesTab() {
       user_email: code.user_email || "",
       temp_password: code.temp_password || "",
       duration_value: durationValue,
-      duration_unit: durationUnit
+      duration_unit: durationUnit,
+      user_type: code.user_type || "student"
     });
     setModal("edit");
   };
@@ -1255,7 +1430,8 @@ function CodesTab() {
       user_name: editForm.user_name,
       user_email: editForm.user_email,
       temp_password: editForm.temp_password,
-      expires_at: expiresAt
+      expires_at: expiresAt,
+      user_type: editForm.user_type
     }).eq("id", editingCode.id);
 
     if (error) {
@@ -1273,7 +1449,7 @@ function CodesTab() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-black text-foreground">أكواد الدخول</h2>
         <button
-          onClick={() => { setForm({ ...form, code: generateCode(), duration_unit: "minutes", temp_password: Math.random().toString(36).slice(-8), password_mode: "auto" }); setModal("create"); }}
+          onClick={() => { setForm({ ...form, code: generateCode(), duration_unit: "minutes", temp_password: Math.random().toString(36).slice(-8), password_mode: "auto", user_type: "student" }); setModal("create"); }}
           className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary font-medium px-4 py-2 rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -1302,8 +1478,30 @@ function CodesTab() {
                   <p className="text-xs text-muted-foreground">
                     <span className="text-blue-600 font-mono">كلمه المرور: {c.temp_password}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {c.is_used ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${c.user_type === 'teacher' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {c.user_type === 'teacher' ? 'معلم' : 'طالب'}
+                    </span>
+                    {c.user_type === 'teacher' && c.teacher && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                        {c.teacher.name}
+                      </span>
+                    )}
+                    {c.user_type === 'teacher' && c.subject && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                        {c.subject.name_ar}
+                      </span>
+                    )}
+                    {c.is_unlimited && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                        شغال للأبد
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {c.user_type === 'teacher' ? (
+                      <span className="text-emerald-600">كود معلم - شغال للأبد</span>
+                    ) : c.is_used ? (
                       <span className="text-green-600">تم الاستخدام</span>
                     ) : c.expires_at && new Date(c.expires_at) < new Date() ? (
                       <span className="text-red-500">منتهي الصلاحية</span>
@@ -1385,6 +1583,56 @@ function CodesTab() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">نوع الحساب</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, user_type: "student" })}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${form.user_type === "student" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80"}`}
+                  >
+                    طالب
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, user_type: "teacher" })}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${form.user_type === "teacher" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80"}`}
+                  >
+                    معلم
+                  </button>
+                </div>
+              </div>
+
+              {form.user_type === "teacher" && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">المعلم</label>
+                    <select
+                      value={form.teacher_id}
+                      onChange={(e) => setForm({ ...form, teacher_id: e.target.value })}
+                      className="input-field w-full"
+                    >
+                      <option value="">اختر المعلم</option>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">المادة</label>
+                    <select
+                      value={form.subject_id}
+                      onChange={(e) => setForm({ ...form, subject_id: e.target.value })}
+                      className="input-field w-full"
+                    >
+                      <option value="">اختر المادة</option>
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور المؤقتة</label>
                 <div className="flex gap-2 mb-2">
                   <button
@@ -1412,30 +1660,32 @@ function CodesTab() {
                   readOnly={form.password_mode === "auto"}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">مدة الصلاحية</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    value={form.duration_value}
-                    onChange={(e) => setForm({ ...form, duration_value: e.target.value })}
-                    className="input-field"
-                    min="1"
-                    placeholder="المدة"
-                  />
-                  <select
-                    value={form.duration_unit}
-                    onChange={(e) => setForm({ ...form, duration_unit: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="minutes">دقائق</option>
-                    <option value="hours">ساعات</option>
-                    <option value="days">أيام</option>
-                    <option value="weeks">أسابيع</option>
-                    <option value="months">شهور</option>
-                  </select>
+              {form.user_type === "student" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">مدة الصلاحية</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      value={form.duration_value}
+                      onChange={(e) => setForm({ ...form, duration_value: e.target.value })}
+                      className="input-field"
+                      min="1"
+                      placeholder="المدة"
+                    />
+                    <select
+                      value={form.duration_unit}
+                      onChange={(e) => setForm({ ...form, duration_unit: e.target.value })}
+                      className="input-field"
+                    >
+                      <option value="minutes">دقائق</option>
+                      <option value="hours">ساعات</option>
+                      <option value="days">أيام</option>
+                      <option value="weeks">أسابيع</option>
+                      <option value="months">شهور</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
               <button
                 onClick={handleCreate}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl transition-colors"
@@ -1488,6 +1738,25 @@ function CodesTab() {
                   placeholder="user@example.com"
                   dir="ltr"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">نوع الحساب</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, user_type: "student" })}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editForm.user_type === "student" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80"}`}
+                  >
+                    طالب
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, user_type: "teacher" })}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editForm.user_type === "teacher" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80"}`}
+                  >
+                    معلم
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور المؤقتة</label>
@@ -2429,6 +2698,1297 @@ function VideoChaptersModal({ lesson, onClose }: { lesson: { id: string; title: 
         </>
       )}
     </ModalShell>
+  );
+}
+
+// ─── RECHARGE CODES TAB ──────────────────────────────────────────────────────
+function RechargeCodesTab() {
+  const [modal, setModal] = useState<string | null>(null);
+  const [codes, setCodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    code: "",
+    amount: "50",
+    uses_limit: "1",
+  });
+
+  useEffect(() => {
+    loadCodes();
+  }, []);
+
+  const loadCodes = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("recharge_codes").select("*").order("created_at", { ascending: false });
+    setLoading(false);
+    if (data) setCodes(data);
+  };
+
+  const handleCreate = async () => {
+    if (!form.code || !form.amount) {
+      toast.error("الكود والمبلغ مطلوبان");
+      return;
+    }
+    const { error } = await supabase.from("recharge_codes").insert({
+      code: form.code.toUpperCase(),
+      amount: parseFloat(form.amount),
+      uses_limit: parseInt(form.uses_limit) || 1,
+    });
+    if (error) {
+      toast.error("فشل: " + error.message);
+    } else {
+      toast.success("تم إنشاء كود الشحن");
+      setModal(null);
+      setForm({ code: "", amount: "50", uses_limit: "1" });
+      loadCodes();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("حذف الكود؟")) return;
+    await supabase.from("recharge_codes").delete().eq("id", id);
+    loadCodes();
+    toast.success("تم الحذف");
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-black text-foreground">أكواد شحن الرصيد</h2>
+        <button onClick={() => { setForm({ code: "", amount: "50", uses_limit: "1" }); setModal("create"); }} className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary font-medium px-4 py-2 rounded-xl">
+          <Plus className="w-4 h-4" /> كود جديد
+        </button>
+      </div>
+      {loading ? <Loader2 className="w-8 h-8 animate-spin mx-auto" /> : codes.length === 0 ? (
+        <div className="text-center py-12"><p className="text-5xl mb-3">💳</p><p className="font-medium">لا توجد أكواد شحن</p></div>
+      ) : (
+        <div className="grid gap-4">
+          {codes.map((c) => (
+            <div key={c.id} className="bg-white border border-border rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center"><Wallet className="w-6 h-6 text-emerald-600" /></div>
+                <div>
+                  <p className="font-bold text-lg">{c.code}</p>
+                  <p className="text-sm text-muted-foreground">{c.amount} جنيه</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.uses_limit === 0 ? "استخدام غير محدود" : `متبقي ${c.uses_limit - c.uses_count} استخدام`}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => handleDelete(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {modal === "create" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-xl">كود شحن جديد</h3>
+              <button onClick={() => setModal(null)} className="p-2 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">الكود</label>
+                <div className="flex gap-2">
+                  <input type="text" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} className="input-field flex-1" placeholder="XXXXXX" dir="ltr" />
+                  <button type="button" onClick={() => setForm({ ...form, code: Math.random().toString(36).substring(2, 8).toUpperCase() })} className="px-3 py-2 bg-muted rounded-lg hover:bg-muted/80">توليد</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">المبلغ (جنيه)</label>
+                <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="input-field w-full" min="1" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">عدد مرات الاستخدام</label>
+                <select value={form.uses_limit} onChange={(e) => setForm({ ...form, uses_limit: e.target.value })} className="input-field w-full">
+                  <option value="1">مرة واحدة</option>
+                  <option value="5">5 مرات</option>
+                  <option value="10">10 مرات</option>
+                  <option value="0">غير محدود</option>
+                </select>
+              </div>
+              <button onClick={handleCreate} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl">إنشاء الكود</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── DISCOUNT CODES TAB ──────────────────────────────────────────────────────
+function DiscountCodesTab() {
+  const [modal, setModal] = useState<string | null>(null);
+  const [codes, setCodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [form, setForm] = useState({
+    code: "",
+    discount_type: "percentage" as "percentage" | "fixed",
+    discount_value: "10",
+    scope: "all" as "all" | "subject" | "course",
+    scope_id: "",
+    uses_limit: "1",
+    expires_at: "",
+  });
+
+  useEffect(() => {
+    loadCodes();
+    loadSubjects();
+    loadCourses();
+  }, []);
+
+  const loadCodes = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("discount_codes").select("*").order("created_at", { ascending: false });
+    setLoading(false);
+    if (data) setCodes(data);
+  };
+
+  const loadSubjects = async () => {
+    const { data } = await supabase.from("subjects").select("*").order("name");
+    if (data) setSubjects(data);
+  };
+
+  const loadCourses = async () => {
+    const { data } = await supabase.from("courses").select("*").order("title");
+    if (data) setCourses(data);
+  };
+
+  const handleCreate = async () => {
+    if (!form.code || !form.discount_value) {
+      toast.error("الكود وقيمة الخصم مطلوبان");
+      return;
+    }
+    const { error } = await supabase.from("discount_codes").insert({
+      code: form.code.toUpperCase(),
+      discount_type: form.discount_type,
+      discount_value: parseFloat(form.discount_value),
+      scope: form.scope,
+      scope_id: form.scope === "all" ? null : form.scope_id || null,
+      uses_limit: parseInt(form.uses_limit) || 1,
+      expires_at: form.expires_at || null,
+    });
+    if (error) {
+      toast.error("فشل: " + error.message);
+    } else {
+      toast.success("تم إنشاء كود الخصم");
+      setModal(null);
+      setForm({ code: "", discount_type: "percentage", discount_value: "10", scope: "all", scope_id: "", uses_limit: "1", expires_at: "" });
+      loadCodes();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("حذف الكود؟")) return;
+    await supabase.from("discount_codes").delete().eq("id", id);
+    loadCodes();
+    toast.success("تم الحذف");
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-black text-foreground">أكواد الخصم</h2>
+        <button onClick={() => { setForm({ code: "", discount_type: "percentage", discount_value: "10", scope: "all", scope_id: "", uses_limit: "1", expires_at: "" }); setModal("create"); }} className="flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary font-medium px-4 py-2 rounded-xl">
+          <Plus className="w-4 h-4" /> كود جديد
+        </button>
+      </div>
+      {loading ? <Loader2 className="w-8 h-8 animate-spin mx-auto" /> : codes.length === 0 ? (
+        <div className="text-center py-12"><p className="text-5xl mb-3">🏷️</p><p className="font-medium">لا توجد أكواد خصم</p></div>
+      ) : (
+        <div className="grid gap-4">
+          {codes.map((c) => (
+            <div key={c.id} className="bg-white border border-border rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center"><Percent className="w-6 h-6 text-purple-600" /></div>
+                <div>
+                  <p className="font-bold text-lg">{c.code}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {c.discount_type === "percentage" ? `${c.discount_value}%` : `${c.discount_value} جنيه`} خصم
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.scope === "all" ? "جميع الكورسات" : c.scope === "subject" ? "مادة معينة" : "كورس معين"}
+                    {c.scope_id && (
+                      <span className="mx-1">• {c.scope === "subject" ? subjects.find(s => s.id === c.scope_id)?.name : courses.find(co => co.id === c.scope_id)?.title}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => handleDelete(c.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {modal === "create" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-xl">كود خصم جديد</h3>
+              <button onClick={() => setModal(null)} className="p-2 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">الكود</label>
+                <div className="flex gap-2">
+                  <input type="text" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} className="input-field flex-1" placeholder="XXXXXX" dir="ltr" />
+                  <button type="button" onClick={() => setForm({ ...form, code: Math.random().toString(36).substring(2, 8).toUpperCase() })} className="px-3 py-2 bg-muted rounded-lg hover:bg-muted/80">توليد</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">نوع الخصم</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setForm({ ...form, discount_type: "percentage" })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.discount_type === "percentage" ? "bg-primary text-white" : "bg-muted"}`}>نسبة مئوية</button>
+                  <button type="button" onClick={() => setForm({ ...form, discount_type: "fixed" })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.discount_type === "fixed" ? "bg-primary text-white" : "bg-muted"}`}>مبلغ ثابت</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">قيمة الخصم {form.discount_type === "percentage" ? "(%)" : "(جنيه)"}</label>
+                <input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: e.target.value })} className="input-field w-full" min="1" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">نطاق الخصم</label>
+                <div className="flex gap-2 mb-2">
+                  <button type="button" onClick={() => setForm({ ...form, scope: "all" })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.scope === "all" ? "bg-primary text-white" : "bg-muted"}`}>الكل</button>
+                  <button type="button" onClick={() => setForm({ ...form, scope: "subject" })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.scope === "subject" ? "bg-primary text-white" : "bg-muted"}`}>مادة</button>
+                  <button type="button" onClick={() => setForm({ ...form, scope: "course" })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.scope === "course" ? "bg-primary text-white" : "bg-muted"}`}>كورس</button>
+                </div>
+                {form.scope === "subject" && (
+                  <select value={form.scope_id} onChange={(e) => setForm({ ...form, scope_id: e.target.value })} className="input-field w-full">
+                    <option value="">اختر المادة</option>
+                    {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
+                {form.scope === "course" && (
+                  <select value={form.scope_id} onChange={(e) => setForm({ ...form, scope_id: e.target.value })} className="input-field w-full">
+                    <option value="">اختر الكورس</option>
+                    {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">عدد مرات الاستخدام</label>
+                <select value={form.uses_limit} onChange={(e) => setForm({ ...form, uses_limit: e.target.value })} className="input-field w-full">
+                  <option value="1">مرة واحدة</option>
+                  <option value="5">5 مرات</option>
+                  <option value="10">10 مرات</option>
+                  <option value="0">غير محدود</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">تاريخ الانتهاء (اختياري)</label>
+                <input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className="input-field w-full" />
+              </div>
+              <button onClick={handleCreate} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl">إنشاء الكود</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ACTIVITIES TAB ──────────────────────────────────────────────────────────────
+function ActivitiesTab() {
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadActivities();
+  }, []);
+
+  const loadActivities = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setActivities(data || []);
+    setLoading(false);
+  };
+
+  const deleteActivity = async (id: string) => {
+    if (!confirm("حذف النشاط؟")) return;
+    await supabase.from("activities").delete().eq("id", id);
+    toast.success("تم حذف النشاط");
+    loadActivities();
+  };
+
+  const iconMap: Record<string, { icon: string; color: string }> = {
+    course: { icon: "📚", color: "bg-blue-100 text-blue-600" },
+    lecture: { icon: "🎬", color: "bg-emerald-100 text-emerald-600" },
+    teacher: { icon: "👨‍🏫", color: "bg-purple-100 text-purple-600" },
+    subject: { icon: "📖", color: "bg-amber-100 text-amber-600" },
+  };
+
+  const timeAgo = (date: string) => {
+    const now = new Date();
+    const then = new Date(date);
+    const diff = now.getTime() - then.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) return "الآن";
+    if (hours < 24) return `منذ ${hours} ساعة`;
+    const days = Math.floor(hours / 24);
+    return `منذ ${days} يوم`;
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">سجل النشاطات</h2>
+          <p className="text-sm text-muted-foreground mt-1">كل المحتوى اللي اتضاف أو اتحدث</p>
+        </div>
+        <button
+          onClick={loadActivities}
+          className="flex items-center gap-2 text-sm text-primary hover:underline"
+        >
+          تحديث
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : activities.length > 0 ? (
+        <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="divide-y divide-border">
+            {activities.map((activity) => {
+              const info = iconMap[activity.type] || { icon: "✨", color: "bg-gray-100 text-gray-600" };
+              return (
+                <div key={activity.id} className="p-4 flex items-start gap-4 hover:bg-muted/20 transition-colors">
+                  <div className={`w-10 h-10 rounded-xl ${info.color} flex items-center justify-center text-lg flex-shrink-0`}>
+                    {info.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground">{activity.title || activity.description}</p>
+                    {activity.description && activity.title && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{activity.description}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">{timeAgo(activity.created_at)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-lg">
+                      {activity.type}
+                    </span>
+                    <button
+                      onClick={() => deleteActivity(activity.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <Sparkles className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+          <p className="text-muted-foreground text-lg font-medium">مفيش نشاطات لسه</p>
+          <p className="text-sm text-muted-foreground mt-1">هتظهر هنا أول ما تضيف محتوى جديد</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SETTINGS TAB ──────────────────────────────────────────────────────────────
+function SettingsTab() {
+  const [settings, setSettings] = useState({ platform_name: "راجع", maintenance_mode: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("platform_settings").select("*").single();
+    if (data) setSettings(data);
+    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("platform_settings")
+      .update({ platform_name: settings.platform_name, maintenance_mode: settings.maintenance_mode })
+      .eq("id", settings.id);
+    
+    setSaving(false);
+    if (error) {
+      toast.error("فشل في الحفظ: " + error.message);
+    } else {
+      toast.success("تم حفظ الإعدادات بنجاح");
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-black text-foreground mb-6">إعدادات المنصة</h2>
+      
+      <div className="bg-white rounded-2xl border border-border p-6 space-y-6">
+        {/* Platform Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">اسم المنصة</label>
+          <input
+            type="text"
+            value={settings.platform_name}
+            onChange={(e) => setSettings({ ...settings, platform_name: e.target.value })}
+            className="input-field w-full"
+            placeholder="راجع"
+          />
+          <p className="text-xs text-muted-foreground mt-1">سيظهر هذا الاسم في الهيدر والفوتر وجميع الصفحات فوراً</p>
+        </div>
+
+        {/* Maintenance Mode */}
+        <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-200">
+          <div>
+            <h3 className="font-bold text-amber-800">وضع الصيانة</h3>
+            <p className="text-sm text-amber-600">عند التفعيل، سيظهر للطلاب شاشة صيانة ولن يتمكنوا من استخدام المنصة</p>
+          </div>
+          <button
+            onClick={() => setSettings({ ...settings, maintenance_mode: !settings.maintenance_mode })}
+            className={`relative w-14 h-7 rounded-full transition-colors ${settings.maintenance_mode ? "bg-amber-500" : "bg-gray-300"}`}
+          >
+            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${settings.maintenance_mode ? "right-1" : "left-1"}`} />
+          </button>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+        >
+          {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+          حفظ الإعدادات
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── QUESTIONS TAB ──────────────────────────────────────────────────────────────
+function QuestionsTab() {
+  const { data: courses = [] } = useCourses(true);
+  const [selectedLecture, setSelectedLecture] = useState("");
+  const [modal, setModal] = useState<string | null>(null);
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const [editTarget, setEditTarget] = useState<any>(null);
+
+  const { data: lectures = [] } = useAllLectures();
+  const { data: questions = [] } = useQuestions(selectedLecture);
+  const create = useCreateQuestion();
+  const deleteQ = useDeleteQuestion();
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("حذف السؤال؟")) return;
+    await deleteQ.mutateAsync({ id, lectureId: selectedLecture });
+    toast.success("تم حذف السؤال");
+  };
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-foreground">بنك الأسئلة</h2>
+        <p className="text-sm text-muted-foreground mt-1">أضف أسئلة لكل محاضرة مع التصحيح التلقائي</p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-5 mb-6">
+        <label className="text-sm font-medium text-foreground mb-2 block">اختر المحاضرة</label>
+        <select
+          value={selectedLecture}
+          onChange={(e) => setSelectedLecture(e.target.value)}
+          className="input-field w-full"
+        >
+          <option value="">-- اختر المحاضرة --</option>
+          {lectures.map((l: any) => (
+            <option key={l.id} value={l.id}>{l.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {selectedLecture && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">{questions.length} سؤال</p>
+            <button
+              onClick={() => { setEditTarget(null); setModal("question"); }}
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة سؤال
+            </button>
+          </div>
+
+          {questions.length > 0 ? (
+            <div className="space-y-3">
+              {questions.map((q: any, i: number) => (
+                <div key={q.id} className="bg-white rounded-xl border border-border p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">س{i + 1}</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          q.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
+                          q.difficulty === 'medium' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {q.difficulty === 'easy' ? 'سهل' : q.difficulty === 'medium' ? 'متوسط' : 'صعب'}
+                        </span>
+                      </div>
+                      <p className="font-medium text-foreground mb-2">{q.question_text}</p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="text-muted-foreground">أ) {q.option_a}</span>
+                        <span className="text-muted-foreground">ب) {q.option_b}</span>
+                        <span className="text-muted-foreground">ج) {q.option_c}</span>
+                        <span className="text-muted-foreground">د) {q.option_d}</span>
+                      </div>
+                      <p className="text-xs text-emerald-600 mt-2 font-medium">الإجابة: {q.correct_answer.toUpperCase()}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditTarget(q); setModal("question"); }} className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(q.id)} className="p-2 text-muted-foreground hover:text-red-500 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <HelpCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-muted-foreground font-medium">مفيش أسئلة للمحاضرة دي</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {modal === "question" && (
+        <QuestionModal
+          lectureId={selectedLecture}
+          initial={editTarget}
+          onClose={() => { setModal(null); setEditTarget(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuestionModal({ lectureId, initial, onClose }: { lectureId: string; initial?: any; onClose: () => void }) {
+  const create = useCreateQuestion();
+  const update = useUpdateQuestion();
+  const [form, setForm] = useState({
+    question_text: initial?.question_text || "",
+    option_a: initial?.option_a || "",
+    option_b: initial?.option_b || "",
+    option_c: initial?.option_c || "",
+    option_d: initial?.option_d || "",
+    correct_answer: initial?.correct_answer || "a",
+    explanation: initial?.explanation || "",
+    difficulty: initial?.difficulty || "medium",
+    order_index: initial?.order_index ?? 0,
+  });
+
+  const save = async () => {
+    if (!form.question_text.trim()) { toast.error("اكتب السؤال"); return; }
+    if (!form.option_a || !form.option_b || !form.option_c || !form.option_d) { toast.error("كل الخيارات مطلوبة"); return; }
+    if (initial) {
+      await update.mutateAsync({ id: initial.id, ...form, lecture_id: lectureId });
+      toast.success("تم تحديث السؤال");
+    } else {
+      await create.mutateAsync({ ...form, lecture_id: lectureId });
+      toast.success("تمت إضافة السؤال");
+    }
+    onClose();
+  };
+
+  return (
+    <ModalShell title={initial ? "تعديل سؤال" : "إضافة سؤال جديد"} onClose={onClose}>
+      <Field label="نص السؤال *">
+        <textarea value={form.question_text} onChange={(e) => setForm({ ...form, question_text: e.target.value })} className="input-field" rows={2} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="الخيار أ *"><input value={form.option_a} onChange={(e) => setForm({ ...form, option_a: e.target.value })} className="input-field" /></Field>
+        <Field label="الخيار ب *"><input value={form.option_b} onChange={(e) => setForm({ ...form, option_b: e.target.value })} className="input-field" /></Field>
+        <Field label="الخيار ج *"><input value={form.option_c} onChange={(e) => setForm({ ...form, option_c: e.target.value })} className="input-field" /></Field>
+        <Field label="الخيار د *"><input value={form.option_d} onChange={(e) => setForm({ ...form, option_d: e.target.value })} className="input-field" /></Field>
+      </div>
+      <Field label="الإجابة الصحيحة *">
+        <select value={form.correct_answer} onChange={(e) => setForm({ ...form, correct_answer: e.target.value })} className="input-field">
+          <option value="a">أ</option><option value="b">ب</option><option value="c">ج</option><option value="d">د</option>
+        </select>
+      </Field>
+      <Field label="الشرح (بعد الإجابة)">
+        <textarea value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })} className="input-field" rows={2} />
+      </Field>
+      <Field label="المستوى">
+        <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} className="input-field">
+          <option value="easy">سهل</option><option value="medium">متوسط</option><option value="hard">صعب</option>
+        </select>
+      </Field>
+      <SaveBtn isPending={create.isPending || update.isPending} onSave={save} />
+    </ModalShell>
+  );
+}
+
+// ─── SUMMARIES TAB ──────────────────────────────────────────────────────────────
+function SummariesTab() {
+  const { data: lectures = [] } = useAllLectures();
+  const [selectedLecture, setSelectedLecture] = useState("");
+  const { data: summaries = [] } = useSummaries(selectedLecture);
+  const create = useCreateSummary();
+  const deleteS = useDeleteSummary();
+  const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [addMode, setAddMode] = useState<"file" | "link">("link");
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedLecture) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const fileName = `summary-${Date.now()}.${ext}`;
+    const { data, error } = await supabase.storage.from("summaries").upload(fileName, file, { upsert: true });
+    if (error) { toast.error("فشل رفع الملف"); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("summaries").getPublicUrl(data.path);
+    await create.mutateAsync({ lecture_id: selectedLecture, title: title || file.name, file_url: publicUrl, file_type: "file", file_size: file.size, order_index: 0 });
+    toast.success("تم رفع الملخص");
+    setTitle("");
+    setUploading(false);
+  };
+
+  const handleAddLink = async () => {
+    if (!linkUrl.trim() || !selectedLecture) { toast.error("الرابط والمادة مطلوبين"); return; }
+    setUploading(true);
+    await create.mutateAsync({ lecture_id: selectedLecture, title: title || "ملخص خارجي", file_url: linkUrl, file_type: "link", file_size: 0, order_index: 0 });
+    toast.success("تم إضافة الرابط");
+    setTitle("");
+    setLinkUrl("");
+    setUploading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("حذف الملخص؟")) return;
+    await deleteS.mutateAsync({ id, lectureId: selectedLecture });
+    toast.success("تم حذف الملخص");
+  };
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-foreground">الملخصات</h2>
+        <p className="text-sm text-muted-foreground mt-1">أضف روابط خارجية أو ارفع ملفات PDF لكل محاضرة</p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-5 mb-6">
+        <label className="text-sm font-medium text-foreground mb-2 block">اختر المحاضرة</label>
+        <select value={selectedLecture} onChange={(e) => setSelectedLecture(e.target.value)} className="input-field w-full">
+          <option value="">-- اختر المحاضرة --</option>
+          {lectures.map((l: any) => <option key={l.id} value={l.id}>{l.title}</option>)}
+        </select>
+      </div>
+
+      {selectedLecture && (
+        <>
+          <div className="bg-white rounded-2xl border border-border shadow-sm p-5 mb-6">
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setAddMode("link")}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${addMode === "link" ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-600"}`}
+              >
+                🔗 رابط خارجي
+              </button>
+              <button
+                onClick={() => setAddMode("file")}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${addMode === "file" ? "bg-emerald-500 text-white" : "bg-gray-100 text-gray-600"}`}
+              >
+                📄 رفع ملف
+              </button>
+            </div>
+
+            <label className="text-sm font-medium text-foreground mb-2 block">اسم الملخص (اختياري)</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input-field w-full mb-3" placeholder="مثال: ملخص الفصل الأول" />
+
+            {addMode === "link" ? (
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">الرابط</label>
+                <input
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  className="input-field w-full mb-3"
+                  placeholder="https://drive.google.com/..."
+                />
+                <button
+                  onClick={handleAddLink}
+                  disabled={uploading}
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                >
+                  {uploading ? "جارٍ الإضافة..." : "إضافة الرابط"}
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-dashed cursor-pointer transition-all bg-muted/20 hover:bg-muted/40">
+                <input type="file" accept=".pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
+                {uploading ? <><Loader2 className="w-5 h-5 animate-spin text-primary" /><span className="text-sm font-medium text-primary">جارٍ الرفع...</span></> : <><FileText className="w-5 h-5 text-muted-foreground" /><span className="text-sm font-medium text-muted-foreground">اضغط لرفع ملف PDF</span></>}
+              </label>
+            )}
+          </div>
+
+          {summaries.length > 0 ? (
+            <div className="space-y-3">
+              {summaries.map((s: any) => (
+                <div key={s.id} className="bg-white rounded-xl border border-border p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.file_type === "link" ? "bg-blue-100" : "bg-red-100"}`}>
+                      {s.file_type === "link" ? <Link2 className="w-5 h-5 text-blue-600" /> : <FileText className="w-5 h-5 text-red-600" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{s.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.file_type === "link" ? "رابط خارجي" : `${(s.file_size / 1024 / 1024).toFixed(2)} MB`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <a href={s.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </a>
+                    <button onClick={() => handleDelete(s.id)} className="p-2 text-muted-foreground hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-muted-foreground font-medium">مفيش ملخصات للمحاضرة دي</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── HOME PAGE TAB ──────────────────────────────────────────────────────────────
+function HomePageTab() {
+  const { data: blocks = [] } = useAllHomeBlocks();
+  const deleteBlock = useDeleteHomeBlock();
+  const [modal, setModal] = useState<string | null>(null);
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  const [editTarget, setEditTarget] = useState<any>(null);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("حذف البلوك؟")) return;
+    await deleteBlock.mutateAsync(id);
+    toast.success("تم الحذف");
+  };
+
+  const toggleVisibility = async (block: any) => {
+    const update = useUpdateHomeBlock();
+    await update.mutateAsync({ id: block.id, is_visible: !block.is_visible });
+  };
+
+  const typeLabels: Record<string, string> = {
+    hero: "🎯 Hero Section",
+    post: "📝 بوست",
+    offer: "🎁 عرض",
+    featured: "🔥 محتوى مميز",
+    announcement: "📢 تنبيه",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">إدارة الصفحة الرئيسية</h2>
+          <p className="text-sm text-muted-foreground mt-1">تحكم في البلوكات اللي تظهر في الرئيسية</p>
+        </div>
+        <button
+          onClick={() => { setEditTarget(null); setModal("home-block"); }}
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90"
+        >
+          <Plus className="w-4 h-4" />
+          إضافة بلوك
+        </button>
+      </div>
+
+      {blocks.length > 0 ? (
+        <div className="space-y-3">
+          {blocks.map((block: any, i: number) => (
+            <div key={block.id} className={`bg-white rounded-xl border p-4 ${!block.is_visible ? 'opacity-50' : ''}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg flex-shrink-0">
+                    {typeLabels[block.type]?.split(" ")[0] || "📦"}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                        {typeLabels[block.type] || block.type}
+                      </span>
+                      {block.highlight && (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          block.highlight === 'important' ? 'bg-blue-100 text-blue-700' :
+                          block.highlight === 'review' ? 'bg-orange-100 text-orange-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {block.highlight === 'important' ? '⭐ مهم' : block.highlight === 'review' ? '🔥 مراجعة' : '⏰ امتحان'}
+                        </span>
+                      )}
+                      {!block.is_visible && (
+                        <span className="text-xs font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">مخفي</span>
+                      )}
+                    </div>
+                    <p className="font-medium text-foreground">{block.title}</p>
+                    {block.content && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{block.content}</p>}
+                    {block.tracks && block.tracks.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">الشُعب: {block.tracks.join("، ")}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => toggleVisibility(block)} className="p-2 text-muted-foreground hover:text-emerald-500 transition-colors" title={block.is_visible ? "إخفاء" : "إظهار"}>
+                    {block.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => { setEditTarget(block); setModal("home-block"); }} className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(block.id)} className="p-2 text-muted-foreground hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+          <p className="text-muted-foreground font-medium">مفيش بلوكات لسه</p>
+          <p className="text-sm text-muted-foreground mt-1">ضيف أول بلوك للصفحة الرئيسية</p>
+        </div>
+      )}
+
+      {modal === "home-block" && (
+        <HomeBlockModal initial={editTarget} onClose={() => { setModal(null); setEditTarget(null); }} />
+      )}
+    </div>
+  );
+}
+
+function HomeBlockModal({ initial, onClose }: { initial?: any; onClose: () => void }) {
+  const create = useCreateHomeBlock();
+  const update = useUpdateHomeBlock();
+  const [form, setForm] = useState({
+    type: initial?.type || "post" as string,
+    title: initial?.title || "",
+    content: initial?.content || "",
+    image_url: initial?.image_url || "",
+    link_url: initial?.link_url || "",
+    highlight: initial?.highlight || "",
+    tracks: initial?.tracks || ["science-bio", "science-math", "literary"] as string[],
+    order_index: initial?.order_index ?? 0,
+  });
+
+  const toggleTrack = (trackId: string) => {
+    setForm({ ...form, tracks: form.tracks.includes(trackId) ? form.tracks.filter(t => t !== trackId) : [...form.tracks, trackId] });
+  };
+
+  const save = async () => {
+    if (!form.title.trim()) { toast.error("العنوان مطلوب"); return; }
+    if (initial) {
+      await update.mutateAsync({ id: initial.id, ...form });
+      toast.success("تم التحديث");
+    } else {
+      await create.mutateAsync(form);
+      toast.success("تمت الإضافة");
+    }
+    onClose();
+  };
+
+  return (
+    <ModalShell title={initial ? "تعديل بلوك" : "إضافة بلوك جديد"} onClose={onClose}>
+      <Field label="نوع البلوك *">
+        <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="input-field">
+          <option value="hero">🎯 Hero Section</option>
+          <option value="post">📝 بوست</option>
+          <option value="offer">🎁 عرض</option>
+          <option value="featured">🔥 محتوى مميز</option>
+          <option value="announcement">📢 تنبيه</option>
+        </select>
+      </Field>
+      <Field label="العنوان *"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field" /></Field>
+      <Field label="المحتوى"><textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="input-field" rows={3} /></Field>
+      <Field label="رابط الصورة"><input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="input-field" dir="ltr" /></Field>
+      <Field label="رابط الإجراء"><input value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} className="input-field" dir="ltr" placeholder="/courses أو رابط خارجي" /></Field>
+      <Field label="الترتيب"><input type="number" value={form.order_index} onChange={(e) => setForm({ ...form, order_index: +e.target.value })} className="input-field" /></Field>
+      <Field label="تمييز (Badge)">
+        <div className="grid grid-cols-4 gap-2">
+          {[{ value: "", label: "بدون" }, { value: "important", label: "⭐ مهم" }, { value: "review", label: "🔥 مراجعة" }, { value: "exam", label: "⏰ امتحان" }].map(h => (
+            <button key={h.value} type="button" onClick={() => setForm({ ...form, highlight: h.value })} className={`p-2 rounded-xl border-2 text-xs font-medium ${form.highlight === h.value ? 'border-primary bg-primary/10' : 'border-gray-200'}`}>{h.label}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label="الشُعب المستهدفة">
+        <div className="space-y-2">
+          {[{ id: "science-bio", label: "علمي علوم" }, { id: "science-math", label: "علمي رياضة" }, { id: "literary", label: "أدبي" }].map(t => (
+            <label key={t.id} className={`flex items-center gap-3 p-2 rounded-lg border-2 cursor-pointer ${form.tracks.includes(t.id) ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'}`}>
+              <input type="checkbox" checked={form.tracks.includes(t.id)} onChange={() => toggleTrack(t.id)} className="sr-only" />
+              <div className={`w-4 h-4 rounded ${form.tracks.includes(t.id) ? 'bg-emerald-500' : 'border-2 border-gray-300'}`} />
+              <span className="text-sm">{t.label}</span>
+            </label>
+          ))}
+        </div>
+      </Field>
+      <SaveBtn isPending={create.isPending || update.isPending} onSave={save} />
+    </ModalShell>
+  );
+}
+
+// ─── ADMIN STUDENTS TAB ───────────────────────────────────────────────────────
+function AdminStudentsTab() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    setLoading(true);
+    const { data: purchases } = await supabase
+      .from("course_purchases")
+      .select("*, course:courses(title)")
+      .order("created_at", { ascending: false });
+
+    const userMap: Record<string, any> = {};
+    purchases?.forEach((p: any) => {
+      const userId = p.user_id;
+      if (!userMap[userId]) {
+        userMap[userId] = {
+          id: userId,
+          email: p.user_email || "غير معروف",
+          name: p.user_name || "غير معروف",
+          courses: [],
+          totalSpent: 0,
+          lastPurchase: p.created_at,
+        };
+      }
+      if (p.course?.title && !userMap[userId].courses.includes(p.course.title)) {
+        userMap[userId].courses.push(p.course.title);
+      }
+      userMap[userId].totalSpent += p.amount || 0;
+      if (new Date(p.created_at) > new Date(userMap[userId].lastPurchase)) {
+        userMap[userId].lastPurchase = p.created_at;
+      }
+    });
+
+    setStudents(Object.values(userMap));
+    setLoading(false);
+  };
+
+  const filtered = students.filter((s) =>
+    s.email.toLowerCase().includes(search.toLowerCase()) ||
+    s.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">الطلاب</h2>
+        <span className="text-sm text-muted-foreground">{students.length} طالب</span>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-border p-4 mb-6">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث عن طالب..." className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : filtered.length > 0 ? (
+        <div className="space-y-3">
+          {filtered.map((student) => (
+            <div key={student.id} className="bg-white rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">{student.name.charAt(0).toUpperCase()}</div>
+                  <div>
+                    <p className="font-bold text-foreground">{student.name}</p>
+                    <p className="text-xs text-muted-foreground">{student.email}</p>
+                  </div>
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-emerald-600">{student.totalSpent} جنيه</p>
+                  <p className="text-xs text-muted-foreground">{student.courses.length} كورس</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {student.courses.map((course: string, i: number) => (
+                  <span key={i} className="px-2 py-1 bg-gray-50 rounded-lg text-xs text-gray-600">{course}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-2xl border border-border">
+          <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+          <p className="text-muted-foreground font-medium">مفيش طلاب لسه</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ADMIN SALES TAB ─────────────────────────────────────────────────────────
+function AdminSalesTab() {
+  const [sales, setSales] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+
+  useEffect(() => {
+    loadSales();
+  }, []);
+
+  const loadSales = async () => {
+    setLoading(true);
+    const { data: purchases } = await supabase
+      .from("course_purchases")
+      .select("*, course:courses(title)")
+      .order("created_at", { ascending: false });
+
+    setSales(purchases || []);
+    setTotalRevenue(purchases?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0);
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">المبيعات</h2>
+        <div className="bg-emerald-50 px-4 py-2 rounded-xl">
+          <p className="text-sm text-emerald-600 font-bold">إجمالي: {totalRevenue} جنيه</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : sales.length > 0 ? (
+        <div className="space-y-3">
+          {sales.map((sale: any) => (
+            <div key={sale.id} className="bg-white rounded-xl border border-border p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-foreground">{sale.course?.title || "كورس"}</p>
+                  <p className="text-xs text-muted-foreground">{sale.user_email || "غير معروف"} • {new Date(sale.created_at).toLocaleDateString("ar-EG")}</p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-emerald-600">{sale.amount || 0} جنيه</p>
+                <p className="text-xs text-muted-foreground">تم الشراء</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-2xl border border-border">
+          <TrendingUp className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+          <p className="text-muted-foreground font-medium">مفيش مبيعات لسه</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── NOTIFICATIONS TAB ────────────────────────────────────────────────────────
+function NotificationsTab() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    message: "",
+    targetType: "all" as "all" | "students" | "teachers",
+  });
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setNotifications(data || []);
+    setLoading(false);
+  };
+
+  const sendNotification = async () => {
+    if (!form.message.trim()) { toast.error("اكتب رسالة الإشعار"); return; }
+
+    let targetUsers: any[] = [];
+
+    if (form.targetType === "all") {
+      const { data } = await supabase.from("profiles").select("id");
+      targetUsers = data || [];
+    } else if (form.targetType === "students") {
+      const { data } = await supabase.from("profiles").select("id").eq("role", "student");
+      targetUsers = data || [];
+    } else {
+      const { data } = await supabase.from("profiles").select("id").eq("role", "teacher");
+      targetUsers = data || [];
+    }
+
+    if (targetUsers.length === 0) {
+      toast.error("مفيش مستهدفين");
+      return;
+    }
+
+    const notifPayload = targetUsers.map((u) => ({
+      user_id: u.id,
+      title: form.title || "إشعار جديد",
+      message: form.message,
+      is_read: false,
+    }));
+
+    const { error } = await supabase.from("notifications").insert(notifPayload);
+    if (error) {
+      console.error("sendNotification error:", error);
+      if (error.code === "42501" || error.message?.includes("row-level security")) {
+        toast.error("ممنوع الإرسال — فشل RLS policy. شوف وحدة تحكم Supabase.");
+      } else if (error.message?.includes("column")) {
+        toast.error(`عمود مش موجود: ${error.message}`);
+      } else if (error.code === "23503") {
+        toast.error("جدول المستخدمين مش متطابق مع الـ profiles");
+      } else {
+        toast.error("فشل إرسال الإشعار");
+      }
+    } else {
+      toast.success(`تم إرسال الإشعار لـ ${targetUsers.length} مستخدم`);
+      setShowModal(false);
+      setForm({ title: "", message: "", targetType: "all" });
+      loadNotifications();
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    if (!confirm("حذف الإشعار؟")) return;
+    await supabase.from("notifications").delete().eq("id", id);
+    toast.success("تم حذف الإشعار");
+    loadNotifications();
+  };
+
+  const timeAgo = (date: string) => {
+    const now = new Date();
+    const then = new Date(date);
+    const diff = now.getTime() - then.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) return "الآن";
+    if (hours < 24) return `منذ ${hours} ساعة`;
+    const days = Math.floor(hours / 24);
+    return `منذ ${days} يوم`;
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">الإشعارات</h2>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-600 transition-colors text-sm font-bold"
+        >
+          <Bell className="w-4 h-4" />
+          إرسال إشعار
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : notifications.length > 0 ? (
+        <div className="space-y-3">
+          {notifications.slice(0, 20).map((notif) => (
+            <div key={notif.id} className="bg-white rounded-xl border border-border p-4 flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-foreground text-sm">{notif.title}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{notif.message}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{timeAgo(notif.created_at)}</p>
+                </div>
+              </div>
+              <button onClick={() => deleteNotification(notif.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-2xl border border-border">
+          <Bell className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+          <p className="text-muted-foreground font-medium">مفيش إشعارات لسه</p>
+        </div>
+      )}
+
+      {/* Send Notification Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-foreground mb-6">إرسال إشعار</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">العنوان</label>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field w-full" placeholder="عنوان الإشعار" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">الرسالة *</label>
+                <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="input-field w-full" rows={3} placeholder="اكتب رسالة الإشعار..." />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">المستهدفين</label>
+                <select value={form.targetType} onChange={(e) => setForm({ ...form, targetType: e.target.value as any })} className="input-field w-full">
+                  <option value="all">كل المستخدمين</option>
+                  <option value="students">الطلاب فقط</option>
+                  <option value="teachers">المعلمين فقط</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="flex-1 py-3 border border-border rounded-xl hover:bg-muted text-sm font-medium">إلغاء</button>
+              <button onClick={sendNotification} className="flex-1 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm font-bold">إرسال</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

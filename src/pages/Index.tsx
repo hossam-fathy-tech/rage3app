@@ -1,17 +1,20 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import heroImage from "@/assets/hero-banner.jpg";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, Play, Users, BookOpen, Award, CheckCircle, 
   Loader2, Sparkles, Zap, Shield, Clock, 
   GraduationCap, Video, ChevronDown, LogOut,
-  BookMarked, TrendingUp, Star, Target, Layers
+  BookMarked, TrendingUp, Star, Target, Layers,
+  FlaskConical, Calculator, ChevronLeft, ExternalLink, Wallet
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import SubjectCard from "@/components/features/SubjectCard";
 import CourseCard from "@/components/features/CourseCard";
-import { useSubjects, useCourses } from "@/hooks/useData";
+import { useSubjects, useCourses, useActivities, useHomeBlocks } from "@/hooks/useData";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
 const features = [
@@ -69,20 +72,55 @@ const faqs = [
 const Index = () => {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) setAuthTimedOut(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (user && user.role === 'teacher') {
+      navigate("/", { replace: true });
+    }
+  }, [user, navigate]);
+
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: courses = [], isLoading: coursesLoading } = useCourses(true);
+  const { data: activities = [], isLoading: activitiesLoading } = useActivities();
+  const { data: homeBlocks = [] } = useHomeBlocks(user?.track);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [animatedSubjects, setAnimatedSubjects] = useState(0);
+  const [animatedCourses, setAnimatedCourses] = useState(0);
+  const [animatedLectures, setAnimatedLectures] = useState(0);
+  const hasAnimated = useRef(false);
 
-  const latestCourses = courses.slice(0, 4);
+  const filteredSubjects = useMemo(() => {
+    if (!user?.track) return subjects;
+    return subjects.filter((s: any) => !s.tracks || s.tracks.includes(user.track!));
+  }, [subjects, user?.track]);
+
+  const filteredCourses = useMemo(() => {
+    if (!user?.track) return courses;
+    return courses.filter((c: any) => {
+      const subject = subjects.find((s: any) => s.id === c.subject_id);
+      return !subject?.tracks || subject.tracks.includes(user.track!);
+    });
+  }, [courses, subjects, user?.track]);
+
+  const latestCourses = filteredCourses.slice(0, 4);
 
   const totalLectures = useMemo(() => {
-    return courses.reduce((sum, course) => sum + (course.lectures_count || 0), 0);
-  }, [courses]);
+    return filteredCourses.reduce((sum, course) => sum + (course.lectures_count || 0), 0);
+  }, [filteredCourses]);
 
   const uniqueTeachers = useMemo(() => {
-    const teachers = new Set(courses.map(c => c.teacher_id || c.teacher_name));
+    const teachers = new Set(filteredCourses.map(c => c.teacher_id || c.teacher_name));
     return teachers.size;
-  }, [courses]);
+  }, [filteredCourses]);
 
   const handleLogout = async () => {
     await logout();
@@ -96,8 +134,348 @@ const Index = () => {
     transition: { duration: 0.6 }
   };
 
-  // Landing Page for visitors
-  if (!user && !loading) {
+  const trackInfo: Record<string, { name: string; color: string; icon: any }> = {
+    "science-bio": { name: "علمي علوم", color: "from-emerald-500 to-teal-500", icon: BookOpen },
+    "science-math": { name: "علمي رياضة", color: "from-blue-500 to-indigo-500", icon: Target },
+    "literary": { name: "أدبي", color: "from-amber-500 to-orange-500", icon: Layers },
+  };
+
+  const quickActions = [
+    { label: "المواد", icon: BookOpen, to: "/subjects", color: "from-emerald-500 to-teal-500", desc: "تصفح موادك" },
+    { label: "الكورسات", icon: Video, to: "/courses", color: "from-blue-500 to-indigo-500", desc: "كل الكورسات" },
+    { label: "التحديات", icon: Target, to: "/challenges", color: "from-purple-500 to-pink-500", desc: "اختبر نفسك" },
+    { label: "المحفظة", icon: Wallet, to: "/wallet", color: "from-amber-500 to-orange-500", desc: "رصيدك" },
+  ];
+
+  useEffect(() => {
+    if (user && user.role === 'teacher') {
+      navigate("/", { replace: true });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading) setAuthTimedOut(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!user || hasAnimated.current) return;
+    hasAnimated.current = true;
+    const duration = 1500;
+    const steps = 60;
+    const stepTime = duration / steps;
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const progress = Math.min(step / steps, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setAnimatedSubjects(Math.round(filteredSubjects.length * eased));
+      setAnimatedCourses(Math.round(filteredCourses.length * eased));
+      setAnimatedLectures(Math.round(totalLectures * eased));
+      if (step >= steps) clearInterval(timer);
+    }, stepTime);
+    return () => clearInterval(timer);
+  }, [user, filteredSubjects.length, filteredCourses.length, totalLectures]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel("activities_feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "activities" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["activities"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  // Student Dashboard for logged-in users
+  if (user && !loading) {
+    const track = user.track ? trackInfo[user.track] : null;
+    const TrackIcon = track?.icon || GraduationCap;
+
+    return (
+      <div className="min-h-screen bg-gray-50" dir="rtl">
+        <Header />
+
+        <main className="lg:mr-[260px] px-4 sm:px-6 lg:px-8 py-8 pt-20">
+          {/* Welcome Banner */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-8 mb-8"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
+            </div>
+            <div className="relative z-10">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${track?.color || "from-emerald-500 to-teal-500"} flex items-center justify-center shadow-lg`}
+                >
+                  <TrackIcon className="w-8 h-8 text-white" />
+                </motion.div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-white">أهلاً بيك، {user.username}</h1>
+                  {track && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className={`px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm font-medium`}>
+                        {track.name}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/10"
+                >
+                  <p className="text-2xl font-black text-white">{animatedSubjects}</p>
+                  <p className="text-white/50 text-sm">موادك</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/10"
+                >
+                  <p className="text-2xl font-black text-white">{animatedCourses}</p>
+                  <p className="text-white/50 text-sm">كورسات</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="bg-white/5 backdrop-blur-sm rounded-xl px-5 py-3 border border-white/10"
+                >
+                  <p className="text-2xl font-black text-white">{animatedLectures}</p>
+                  <p className="text-white/50 text-sm">محاضرة</p>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Home Page Blocks */}
+          {homeBlocks.length > 0 && (
+            <div className="space-y-6 mb-8">
+              {homeBlocks.map((block: any, i: number) => (
+                <motion.div
+                  key={block.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <HomeBlockRenderer block={block} />
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <section className="mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {quickActions.map((action, i) => (
+                <motion.div
+                  key={action.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * i }}
+                >
+                  <Link
+                    to={action.to}
+                    className="group bg-white rounded-2xl p-4 border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-300 block"
+                  >
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                      <action.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <p className="font-bold text-gray-800 text-sm">{action.label}</p>
+                    <p className="text-xs text-gray-400">{action.desc}</p>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
+          {/* Activity Feed & Latest Courses */}
+          <div className="grid lg:grid-cols-3 gap-8 mb-12">
+            {/* Activity Feed */}
+            <section className="lg:col-span-1">
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 sticky top-24">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">آخر النشاطات</h2>
+                    <p className="text-xs text-slate-400">محتوى جديد اتضاف</p>
+                  </div>
+                </div>
+
+                {activitiesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                  </div>
+                ) : activities.length > 0 ? (
+                  <div className="space-y-3">
+                    {activities.slice(0, 8).map((activity: any, i: number) => {
+                      const iconMap: Record<string, any> = {
+                        course: BookOpen,
+                        lecture: Video,
+                        teacher: GraduationCap,
+                        subject: Layers,
+                      };
+                      const Icon = iconMap[activity.type] || Sparkles;
+                      const colorMap: Record<string, string> = {
+                        course: "from-blue-500 to-cyan-500",
+                        lecture: "from-emerald-500 to-teal-500",
+                        teacher: "from-purple-500 to-pink-500",
+                        subject: "from-amber-500 to-orange-500",
+                      };
+                      const timeAgo = (date: string) => {
+                        const now = new Date();
+                        const then = new Date(date);
+                        const diff = now.getTime() - then.getTime();
+                        const hours = Math.floor(diff / (1000 * 60 * 60));
+                        if (hours < 1) return "الآن";
+                        if (hours < 24) return `منذ ${hours} ساعة`;
+                        const days = Math.floor(hours / 24);
+                        return `منذ ${days} يوم`;
+                      };
+
+                      return (
+                        <motion.div
+                          key={activity.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${colorMap[activity.type] || "from-gray-500 to-gray-600"} flex items-center justify-center flex-shrink-0`}>
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-700 font-medium">{activity.title || activity.description}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{timeAgo(activity.created_at)}</p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Sparkles className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-400 text-sm">مفيش نشاطات لسه</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Latest Courses */}
+            <section className="lg:col-span-2">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800">أحدث الكورسات</h2>
+                  <p className="text-slate-500 mt-1">ابدأ بأي كورس دلوقتي</p>
+                </div>
+                <Link to="/courses" className="inline-flex items-center gap-1 text-emerald-600 font-bold hover:underline text-sm">
+                  عرض الكل
+                  <ChevronLeft className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {coursesLoading ? (
+                <div className="flex justify-center py-16 bg-white rounded-2xl">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                </div>
+              ) : latestCourses.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {latestCourses.map((course: any, i: number) => (
+                    <motion.div
+                      key={course.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                    >
+                      <CourseCard course={course} />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                  <Video className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 font-medium">مفيش كورسات مضافة لسه</p>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* Subjects Section */}
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-800">موادك الدراسية</h2>
+                <p className="text-slate-500 mt-1">اختر مادة وابدأ المذاكرة</p>
+              </div>
+              <Link to="/subjects" className="inline-flex items-center gap-1 text-emerald-600 font-bold hover:underline text-sm">
+                عرض الكل
+                <ChevronLeft className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {subjectsLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              </div>
+            ) : filteredSubjects.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredSubjects.map((subject: any, i: number) => (
+                  <motion.div
+                    key={subject.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <SubjectCard subject={subject} index={i} />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500 font-medium">مفيش مواد مضافة لشعبتك لسه</p>
+                <p className="text-gray-400 text-sm mt-1">هنتواصل معاك أول ما يضاف محتوى جديد</p>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  // Loading state (with timeout fallback)
+  if (loading && !authTimedOut) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Landing Page for visitors (or if auth timed out)
+  if (!user || authTimedOut) {
     return (
       <div className="min-h-screen bg-white" dir="rtl">
         <Header />
@@ -666,3 +1044,65 @@ const Index = () => {
 };
 
 export default Index;
+
+// ─── HOME BLOCK RENDERER ───────────────────────────────────────────────────────
+const blockStyles: Record<string, { bg: string; border: string; badge: string }> = {
+  hero: { bg: "bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900", border: "border-slate-700", badge: "bg-emerald-500" },
+  post: { bg: "bg-white", border: "border-gray-100", badge: "bg-blue-500" },
+  offer: { bg: "bg-gradient-to-r from-amber-50 to-orange-50", border: "border-amber-200", badge: "bg-amber-500" },
+  featured: { bg: "bg-gradient-to-r from-purple-50 to-pink-50", border: "border-purple-200", badge: "bg-purple-500" },
+  announcement: { bg: "bg-gradient-to-r from-red-50 to-rose-50", border: "border-red-200", badge: "bg-red-500" },
+};
+
+const highlightColors: Record<string, string> = {
+  important: "bg-blue-500",
+  review: "bg-orange-500",
+  exam: "bg-red-500",
+};
+
+function HomeBlockRenderer({ block }: { block: any }) {
+  const style = blockStyles[block.type] || blockStyles.post;
+  const isDark = block.type === "hero";
+
+  return (
+    <Link
+      to={block.link_url || "#"}
+      className={`block rounded-2xl border ${style.border} ${style.bg} overflow-hidden transition-all hover:shadow-lg ${!block.link_url ? "cursor-default" : ""}`}
+    >
+      {block.image_url && (
+        <div className="relative h-48 overflow-hidden">
+          <img src={block.image_url} alt={block.title} className="w-full h-full object-cover" />
+          {(block.highlight || block.type) && (
+            <div className="absolute top-3 right-3 flex gap-2">
+              {block.highlight && (
+                <span className={`px-3 py-1 rounded-full text-white text-xs font-bold ${highlightColors[block.highlight] || "bg-gray-500"}`}>
+                  {block.highlight === "important" ? "⭐ مهم" : block.highlight === "review" ? "🔥 مراجعة" : "⏰ امتحان"}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      <div className={`p-5 ${!block.image_url && (block.highlight || block.type) ? "pt-3" : ""}`}>
+        {!block.image_url && (block.highlight || block.type) && (
+          <div className="flex gap-2 mb-3">
+            {block.highlight && (
+              <span className={`px-3 py-1 rounded-full text-white text-xs font-bold ${highlightColors[block.highlight] || "bg-gray-500"}`}>
+                {block.highlight === "important" ? "⭐ مهم" : block.highlight === "review" ? "🔥 مراجعة" : "⏰ امتحان"}
+              </span>
+            )}
+          </div>
+        )}
+        <h3 className={`text-lg font-black mb-2 ${isDark ? "text-white" : "text-gray-800"}`}>{block.title}</h3>
+        {block.content && (
+          <p className={`text-sm leading-relaxed ${isDark ? "text-white/70" : "text-gray-600"}`}>{block.content}</p>
+        )}
+        {block.link_url && (
+          <p className={`text-sm font-bold mt-3 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+            اكتشف المزيد ←
+          </p>
+        )}
+      </div>
+    </Link>
+  );
+}
