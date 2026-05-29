@@ -16,7 +16,7 @@ type TrackOption = {
 };
 
 const trackOptions: TrackOption[] = [
-  { id: "science_bio", name: "علمي علوم", icon: FlaskConical, description: "فيزياء • كيمياء • أحياء", color: "from-green-500 to-emerald-600" },
+  { id: "science_bio", name: "علمي علوم", icon: FlaskConical, description: "فيزياء • كيمياء • أحياء", color: "from-primary to-primary/80" },
   { id: "science_math", name: "علمي رياضة", icon: Calculator, description: "فيزياء • كيمياء • تفاضل", color: "from-blue-500 to-indigo-600" },
   { id: "literary", name: "أدبي", icon: BookOpen, description: "تاريخ • جغرافيا • فلسفة", color: "from-purple-500 to-pink-600" },
 ];
@@ -401,7 +401,7 @@ const Login = () => {
       return (
         <div className="space-y-4">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
             <h3 className="text-xl font-bold text-gray-800">اختر شعبتك الدراسية</h3>
@@ -419,8 +419,8 @@ const Login = () => {
                   onClick={() => setSelectedTrack(track.id)}
                   className={`w-full p-4 rounded-2xl border-2 transition-all duration-200 text-right ${
                     isSelected
-                      ? `border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100`
-                      : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
+                      ? `border-primary bg-primary/5 shadow-lg shadow-primary/10`
+                      : "border-gray-200 hover:border-primary/30 hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -432,7 +432,7 @@ const Login = () => {
                       <p className="text-xs text-gray-500">{track.description}</p>
                     </div>
                     {isSelected && (
-                      <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
@@ -448,7 +448,7 @@ const Login = () => {
             type="button"
             onClick={handleTrackSelect}
             disabled={!selectedTrack || loading}
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 mt-6"
+            className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 mt-6"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -475,7 +475,7 @@ const Login = () => {
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="أدخل الكود"
-                className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-gray-800"
+                className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-gray-800"
                 dir="ltr"
               />
             </div>
@@ -489,7 +489,7 @@ const Login = () => {
                 value={codePassword}
                 onChange={(e) => setCodePassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pr-12 pl-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-gray-800"
+                className="w-full pr-12 pl-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-gray-800"
                 dir="ltr"
               />
               <button
@@ -516,7 +516,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@email.com"
-              className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-gray-800"
+              className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-gray-800"
               dir="ltr"
               autoComplete="email"
             />
@@ -532,7 +532,7 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full pr-12 pl-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-gray-800"
+              className="w-full pr-12 pl-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-gray-800"
               dir="ltr"
               autoComplete={mode === "register" ? "new-password" : "current-password"}
             />
@@ -555,10 +555,10 @@ const Login = () => {
                 type={showPass ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none text-gray-800"
-                dir="ltr"
-                autoComplete="new-password"
+              placeholder="••••••••"
+              className="w-full pr-12 pl-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none text-gray-800"
+              dir="ltr"
+              autoComplete="new-password"
               />
             </div>
           </div>
@@ -582,7 +582,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex" dir="rtl">
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/70 relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-40 right-20 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
@@ -617,7 +617,7 @@ const Login = () => {
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center">
                 <GraduationCap className="w-6 h-6 text-white" />
               </div>
               <span className="text-2xl font-black text-gray-800">راجع</span>
@@ -644,7 +644,7 @@ const Login = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200"
+                    className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                   >
                     {loading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -699,21 +699,21 @@ const Login = () => {
                 <div className="mt-8 text-center">
                   {mode === "code" ? (
                     <p className="text-gray-600">
-                      <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                      <button type="button" onClick={() => switchMode("signin")} className="text-primary font-semibold hover:text-primary/80">
                         رجوع لتسجيل الدخول
                       </button>
                     </p>
                   ) : mode === "signin" ? (
                     <p className="text-gray-600">
                       ما عندك حساب؟{" "}
-                      <button type="button" onClick={() => switchMode("register")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                      <button type="button" onClick={() => switchMode("register")} className="text-primary font-semibold hover:text-primary/80">
                         إنشاء حساب
                       </button>
                     </p>
                   ) : (
                     <p className="text-gray-600">
                       عندك حساب؟{" "}
-                      <button type="button" onClick={() => switchMode("signin")} className="text-emerald-600 font-semibold hover:text-emerald-700">
+                      <button type="button" onClick={() => switchMode("signin")} className="text-primary font-semibold hover:text-primary/80">
                         تسجيل الدخول
                       </button>
                     </p>
@@ -725,9 +725,9 @@ const Login = () => {
 
           <p className="text-center text-gray-400 text-xs mt-6">
             بتسجيل الدخول توافق على{" "}
-            <a href="#" className="text-emerald-600 hover:underline">شروط الاستخدام</a>
+            <a href="#" className="text-primary hover:underline">شروط الاستخدام</a>
             {" "}و{" "}
-            <a href="#" className="text-emerald-600 hover:underline">سياسة الخصوصية</a>
+            <a href="#" className="text-primary hover:underline">سياسة الخصوصية</a>
           </p>
         </div>
       </div>

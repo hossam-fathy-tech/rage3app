@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { PlayCircle, User, BookMarked, Star, Flame, Clock } from "lucide-react";
+import { SaveButton } from "@/components/features/SavedItems";
 import type { Course } from "@/types/db";
 
 const highlightConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
@@ -71,6 +72,9 @@ const CourseCard = ({ course, progress }: CourseCardProps) => {
               غير منشور
             </div>
           )}
+          <div className="absolute top-3 left-3">
+            <SaveButton type="course" id={course.id} title={course.title} />
+          </div>
         </div>
 
         <div className="p-5 flex flex-col flex-1">

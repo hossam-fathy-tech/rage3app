@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 
 const trackOptions = [
   { id: "all", label: "كل الشعب", color: "bg-gray-500" },
-  { id: "science-bio", label: "علمي علوم", color: "bg-emerald-500" },
+  { id: "science-bio", label: "علمي علوم", color: "bg-primary" },
   { id: "science-math", label: "علمي رياضة", color: "bg-blue-500" },
   { id: "literary", label: "أدبي", color: "bg-amber-500" },
 ];

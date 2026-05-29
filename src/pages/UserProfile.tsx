@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { Clock, Calendar, User, Mail, CheckCircle, XCircle, Trophy, FlaskConical, Calculator, BookMarked, Wallet } from "lucide-react";
+import { Clock, Calendar, User, Mail, CheckCircle, XCircle, Trophy, FlaskConical, Calculator, BookMarked, Wallet, Bell, BellOff } from "lucide-react";
 import Header from "@/components/layout/Header";
+import BottomNav from "@/components/layout/BottomNav";
+import { useNotificationSettings, useUpsertNotificationSettings } from "@/hooks/useData";
+import { toast } from "sonner";
 
 const formatTimeRemaining = (expiresAt: string) => {
   const now = Date.now();
@@ -26,7 +29,7 @@ const formatTimeRemaining = (expiresAt: string) => {
 };
 
 const trackInfo: Record<string, { name: string; icon: React.ElementType; color: string; bg: string }> = {
-  "science-bio": { name: "علمي علوم", icon: FlaskConical, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
+  "science-bio": { name: "علمي علوم", icon: FlaskConical, color: "text-primary", bg: "bg-primary/5 border-primary/20" },
   "science-math": { name: "علمي رياضة", icon: Calculator, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
   "literary": { name: "أدبي", icon: BookMarked, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
 };
@@ -145,14 +148,14 @@ export default function UserProfile() {
             )}
 
             {/* Wallet Balance */}
-            <div className="p-4 rounded-xl border bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 mb-4">
+            <div className="p-4 rounded-xl border bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
-                  <Wallet className="w-5 h-5 text-emerald-600" />
+                  <Wallet className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">رصيد المحفظة</p>
-                  <p className="font-bold text-emerald-600 text-lg">{walletBalance} جنيه</p>
+                  <p className="font-bold text-primary text-lg">{walletBalance} جنيه</p>
                 </div>
               </div>
             </div>
@@ -233,7 +236,91 @@ export default function UserProfile() {
               </div>
             )}
           </div>
+
+          {/* Notification Settings */}
+          <NotificationSettingsPanel user={user} />
         </div>
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
+
+function NotificationSettingsPanel({ user }: { user: any }) {
+  const { data: settings, isLoading } = useNotificationSettings(user?.id);
+  const upsert = useUpsertNotificationSettings();
+  const [local, setLocal] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (settings) {
+      setLocal({
+        notify_videos: settings.notify_videos,
+        notify_lectures: settings.notify_lectures,
+        notify_courses: settings.notify_courses,
+        notify_files: settings.notify_files,
+        notify_questions: settings.notify_questions,
+        notify_teacher_content: settings.notify_teacher_content,
+        notify_admin: settings.notify_admin,
+        notify_offers: settings.notify_offers,
+        notify_maintenance: settings.notify_maintenance,
+      });
+    } else {
+      setLocal({
+        notify_videos: true,
+        notify_lectures: true,
+        notify_courses: true,
+        notify_files: true,
+        notify_questions: true,
+        notify_teacher_content: true,
+        notify_admin: true,
+        notify_offers: true,
+        notify_maintenance: true,
+      });
+    }
+  }, [settings]);
+
+  const toggle = async (key: string) => {
+    const newVal = !local[key];
+    setLocal((prev) => ({ ...prev, [key]: newVal }));
+    await upsert.mutateAsync({ user_id: user.id, [key]: newVal });
+    toast.success(newVal ? "تم التفعيل" : "تم الإيقاف");
+  };
+
+  const items = [
+    { key: "notify_videos", label: "فيديو جديد", icon: "🎥" },
+    { key: "notify_lectures", label: "محاضرة جديدة", icon: "📚" },
+    { key: "notify_courses", label: "كورس جديد", icon: "🎓" },
+    { key: "notify_files", label: "ملف / ملخص", icon: "📄" },
+    { key: "notify_questions", label: "أسئلة جديدة", icon: "❓" },
+    { key: "notify_teacher_content", label: "محتوى من معلم متابَع", icon: "⭐" },
+    { key: "notify_admin", label: "إعلانات إدارية", icon: "📢" },
+    { key: "notify_offers", label: "عروض وخصومات", icon: "🎁" },
+    { key: "notify_maintenance", label: "تنبيهات الصيانة", icon: "🔧" },
+  ];
+
+  if (isLoading) return null;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-border p-6 mt-6">
+      <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+        <Bell className="w-5 h-5 text-primary" />
+        إعدادات الإشعارات
+      </h2>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-sm font-medium text-foreground">{item.label}</span>
+            </div>
+            <button
+              onClick={() => toggle(item.key)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${local[item.key] ? "bg-primary" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${local[item.key] ? "right-0.5" : "left-0.5"}`} />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

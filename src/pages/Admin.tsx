@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, Trash2, Plus, Edit3, ChevronLeft, GraduationCap,
   Loader2, X, Save, Youtube, ListVideo, Link2, CalendarCheck, Flame,
   BookMarked as ChaptersIcon, Clock, ToggleLeft, ToggleRight, Upload, ImageIcon,
-  Key, Wallet, Percent, Settings, Sparkles, FileText, HelpCircle, LayoutGrid, TrendingUp, DollarSign, Search, Bell,
+  Key, Wallet, Percent, Settings, Sparkles, FileText, HelpCircle, LayoutGrid, TrendingUp, DollarSign, Search, Bell, Pin,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,6 +40,8 @@ import {
   // Questions & Summaries
   useQuestions, useCreateQuestion, useUpdateQuestion, useDeleteQuestion,
   useSummaries, useCreateSummary, useDeleteSummary,
+  // Notifications
+  useAdminNotifications, useCreateNotification, useDeleteNotification as useDeleteNotif, useTogglePinNotification,
 } from "@/hooks/useData";
 import type { Subject, Teacher, Course, Lecture, Challenge, ChallengeTask, VideoChapter, VideoLink, AppUser } from "@/types/db";
 
@@ -3110,17 +3112,24 @@ function SettingsTab() {
 
   const loadSettings = async () => {
     setLoading(true);
-    const { data } = await supabase.from("platform_settings").select("*").single();
-    if (data) setSettings(data);
+    const { data } = await supabase.from("platform_settings").select("*").maybeSingle();
+    if (data) {
+      setSettings(data);
+    } else {
+      const { data: inserted } = await supabase.from("platform_settings").insert({ platform_name: "راجع", maintenance_mode: false }).select().single();
+      if (inserted) setSettings(inserted);
+    }
     setLoading(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    const payload: any = { platform_name: settings.platform_name, maintenance_mode: settings.maintenance_mode };
+    if (settings.id) payload.id = settings.id;
+    
     const { error } = await supabase
       .from("platform_settings")
-      .update({ platform_name: settings.platform_name, maintenance_mode: settings.maintenance_mode })
-      .eq("id", settings.id);
+      .upsert(payload, { onConflict: "id" });
     
     setSaving(false);
     if (error) {
@@ -3163,6 +3172,29 @@ function SettingsTab() {
             <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${settings.maintenance_mode ? "right-1" : "left-1"}`} />
           </button>
         </div>
+
+        {/* Maintenance Access Codes */}
+        {settings.maintenance_mode && (
+          <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
+            <h3 className="font-bold text-primary mb-2">أكواد الدخول أثناء الصيانة</h3>
+            <p className="text-sm text-muted-foreground mb-3">شارك هذه الأكواد مع المدرسين أو المشرفين للدخول أثناء الصيانة</p>
+            <div className="space-y-2">
+              {["ADMIN2024", "RA7A3", "DEV001", "MAINTENANCE_BYPASS"].map((code) => (
+                <div key={code} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-border">
+                  <code className="text-sm font-mono font-bold text-foreground">{code}</code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(code); toast.success("تم النسخ"); }}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    نسخ
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">• المشرفون يدخلون تلقائيًا بدون كود</p>
+            <p className="text-xs text-muted-foreground">• الكود يحفظ في المتصفح ولا يُطلب مرة أخرى</p>
+          </div>
+        )}
 
         <button
           onClick={handleSave}
@@ -3826,94 +3858,63 @@ function AdminSalesTab() {
 
 // ─── NOTIFICATIONS TAB ────────────────────────────────────────────────────────
 function NotificationsTab() {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: notifications = [], isLoading } = useAdminNotifications();
+  const createNotif = useCreateNotification();
+  const deleteNotif = useDeleteNotif();
+  const togglePin = useTogglePinNotification();
+
   const [showModal, setShowModal] = useState(false);
+  const { data: subjects = [] } = useSubjects();
+  const { data: teachers = [] } = useTeachers();
   const [form, setForm] = useState({
+    type: "admin_announcement" as "admin_announcement" | "video" | "lecture" | "course" | "file" | "questions" | "teacher_content" | "offer" | "platform_update" | "maintenance",
     title: "",
     message: "",
-    targetType: "all" as "all" | "students" | "teachers",
+    target_type: "all" as "all" | "track" | "subject" | "teacher" | "user",
+    target_id: "" as string,
+    priority: "normal" as "normal" | "important" | "urgent",
+    is_pinned: false,
   });
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
+  const typeOptions = [
+    { value: "admin_announcement" as const, label: "📢 إعلان إداري", color: "bg-orange-50 text-orange-600" },
+    { value: "video" as const, label: "🎥 فيديو جديد", color: "bg-blue-50 text-blue-600" },
+    { value: "lecture" as const, label: "📚 محاضرة جديدة", color: "bg-purple-50 text-purple-600" },
+    { value: "course" as const, label: "🎓 كورس جديد", color: "bg-green-50 text-green-600" },
+    { value: "file" as const, label: "📄 ملف / ملخص", color: "bg-amber-50 text-amber-600" },
+    { value: "questions" as const, label: "❓ أسئلة جديدة", color: "bg-red-50 text-red-600" },
+    { value: "teacher_content" as const, label: "⭐ محتوى من معلم", color: "bg-teal-50 text-teal-600" },
+    { value: "offer" as const, label: "🎁 عرض / خصم", color: "bg-pink-50 text-pink-600" },
+    { value: "platform_update" as const, label: "🔧 تحديث المنصة", color: "bg-indigo-50 text-indigo-600" },
+    { value: "maintenance" as const, label: "⚠️ صيانة", color: "bg-gray-100 text-gray-600" },
+  ];
 
-  const loadNotifications = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setNotifications(data || []);
-    setLoading(false);
+  const priorityColors: Record<string, string> = {
+    normal: "bg-blue-50 text-blue-600",
+    important: "bg-amber-50 text-amber-600",
+    urgent: "bg-red-50 text-red-600",
   };
 
-  const sendNotification = async () => {
+  const handleSend = async () => {
     if (!form.message.trim()) { toast.error("اكتب رسالة الإشعار"); return; }
+    if (!form.title.trim()) { toast.error("عنوان الإشعار مطلوب"); return; }
 
-    let targetUsers: any[] = [];
-
-    if (form.targetType === "all") {
-      const { data } = await supabase.from("profiles").select("id");
-      targetUsers = data || [];
-    } else if (form.targetType === "students") {
-      const { data } = await supabase.from("profiles").select("id").eq("role", "student");
-      targetUsers = data || [];
-    } else {
-      const { data } = await supabase.from("profiles").select("id").eq("role", "teacher");
-      targetUsers = data || [];
-    }
-
-    if (targetUsers.length === 0) {
-      toast.error("مفيش مستهدفين");
-      return;
-    }
-
-    const notifPayload = targetUsers.map((u) => ({
-      user_id: u.id,
-      title: form.title || "إشعار جديد",
-      message: form.message,
-      is_read: false,
-    }));
-
-    const { error } = await supabase.from("notifications").insert(notifPayload);
-    if (error) {
-      console.error("sendNotification error:", error);
-      if (error.code === "42501" || error.message?.includes("row-level security")) {
-        toast.error("ممنوع الإرسال — فشل RLS policy. شوف وحدة تحكم Supabase.");
-      } else if (error.message?.includes("column")) {
-        toast.error(`عمود مش موجود: ${error.message}`);
-      } else if (error.code === "23503") {
-        toast.error("جدول المستخدمين مش متطابق مع الـ profiles");
-      } else {
-        toast.error("فشل إرسال الإشعار");
-      }
-    } else {
-      toast.success(`تم إرسال الإشعار لـ ${targetUsers.length} مستخدم`);
+    try {
+      const result = await createNotif.mutateAsync({
+        type: form.type,
+        title: form.title,
+        message: form.message,
+        target_type: form.target_type,
+        target_id: form.target_id || undefined,
+        priority: form.priority,
+        is_pinned: form.is_pinned,
+      });
+      toast.success(`تم إرسال الإشعار لـ ${result.userCount} مستخدم`);
       setShowModal(false);
-      setForm({ title: "", message: "", targetType: "all" });
-      loadNotifications();
+      setForm({ type: "admin_announcement", title: "", message: "", target_type: "all", target_id: "", priority: "normal", is_pinned: false });
+    } catch (err: any) {
+      toast.error(err?.message || "فشل إرسال الإشعار");
     }
-  };
-
-  const deleteNotification = async (id: string) => {
-    if (!confirm("حذف الإشعار؟")) return;
-    await supabase.from("notifications").delete().eq("id", id);
-    toast.success("تم حذف الإشعار");
-    loadNotifications();
-  };
-
-  const timeAgo = (date: string) => {
-    const now = new Date();
-    const then = new Date(date);
-    const diff = now.getTime() - then.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours < 1) return "الآن";
-    if (hours < 24) return `منذ ${hours} ساعة`;
-    const days = Math.floor(hours / 24);
-    return `منذ ${days} يوم`;
   };
 
   return (
@@ -3922,34 +3923,61 @@ function NotificationsTab() {
         <h2 className="text-xl font-bold text-foreground">الإشعارات</h2>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-600 transition-colors text-sm font-bold"
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl hover:bg-primary/90 transition-colors text-sm font-bold"
         >
           <Bell className="w-4 h-4" />
           إرسال إشعار
         </button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : notifications.length > 0 ? (
         <div className="space-y-3">
-          {notifications.slice(0, 20).map((notif) => (
-            <div key={notif.id} className="bg-white rounded-xl border border-border p-4 flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-5 h-5 text-blue-600" />
+          {notifications.map((notif) => {
+            const typeInfo = typeOptions.find((t) => t.value === notif.type) || typeOptions[0];
+            return (
+              <div key={notif.id} className="bg-white rounded-xl border border-border p-4 flex items-start justify-between hover:shadow-sm transition-shadow">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl ${typeInfo.color} flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-base">{typeInfo.label.split(" ")[0]}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-foreground text-sm">{notif.title}</p>
+                      {notif.is_pinned && <Pin className="w-3.5 h-3.5 text-primary" />}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${priorityColors[notif.priority] || priorityColors.normal}`}>
+                        {notif.priority === "important" ? "مهم" : notif.priority === "urgent" ? "عاجل" : "عادي"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                        {notif.target_type === "all" ? "الكل" : notif.target_type === "track" ? "شعبة" : notif.target_type === "subject" ? "مادة" : notif.target_type === "teacher" ? "معلم" : "مستخدم"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">{notif.message}</p>
+                    <p className="text-xs text-muted-foreground/50 mt-1">
+                      {new Date(notif.created_at).toLocaleDateString("ar-EG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-foreground text-sm">{notif.title}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{notif.message}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{timeAgo(notif.created_at)}</p>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => togglePin.mutateAsync({ id: notif.id, is_pinned: !notif.is_pinned })}
+                    className={`p-1.5 rounded-lg transition-colors ${notif.is_pinned ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"}`}
+                    title={notif.is_pinned ? "إلغاء التثبيت" : "تثبيت"}
+                  >
+                    <Pin className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm("حذف الإشعار؟")) deleteNotif.mutateAsync(notif.id); }}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="حذف"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-              <button onClick={() => deleteNotification(notif.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-2xl border border-border">
@@ -3961,29 +3989,106 @@ function NotificationsTab() {
       {/* Send Notification Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-foreground mb-6">إرسال إشعار</h2>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-foreground mb-6">إرسال إشعار جديد</h2>
             <div className="space-y-4">
+              {/* Type */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">العنوان</label>
-                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field w-full" placeholder="عنوان الإشعار" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">الرسالة *</label>
-                <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="input-field w-full" rows={3} placeholder="اكتب رسالة الإشعار..." />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">المستهدفين</label>
-                <select value={form.targetType} onChange={(e) => setForm({ ...form, targetType: e.target.value as any })} className="input-field w-full">
-                  <option value="all">كل المستخدمين</option>
-                  <option value="students">الطلاب فقط</option>
-                  <option value="teachers">المعلمين فقط</option>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">نوع الإشعار</label>
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as any })} className="input-field w-full">
+                  {typeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
               </div>
+
+              {/* Title */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">العنوان *</label>
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field w-full" placeholder="عنوان الإشعار" />
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">الرسالة *</label>
+                <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} className="input-field w-full" rows={3} placeholder="اكتب رسالة الإشعار..." />
+              </div>
+
+              {/* Target */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">المستهدفون</label>
+                <select value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value as any, target_id: "" })} className="input-field w-full">
+                  <option value="all">كل المستخدمين</option>
+                  <option value="track">حسب الشعبة</option>
+                  <option value="subject">المشتركين في مادة</option>
+                  <option value="teacher">متابعي معلم</option>
+                </select>
+                {form.target_type === "track" && (
+                  <select value={form.target_id} onChange={(e) => setForm({ ...form, target_id: e.target.value })} className="input-field w-full mt-2">
+                    <option value="">اختر الشعبة</option>
+                    <option value="science-bio">علمي علوم</option>
+                    <option value="science-math">علمي رياضة</option>
+                    <option value="literary">أدبي</option>
+                  </select>
+                )}
+                {form.target_type === "subject" && (
+                  <select value={form.target_id} onChange={(e) => setForm({ ...form, target_id: e.target.value })} className="input-field w-full mt-2">
+                    <option value="">اختر المادة</option>
+                    {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
+                {form.target_type === "teacher" && (
+                  <select value={form.target_id} onChange={(e) => setForm({ ...form, target_id: e.target.value })} className="input-field w-full mt-2">
+                    <option value="">اختر المعلم</option>
+                    {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">الأولوية</label>
+                <div className="flex gap-2">
+                  {(["normal", "important", "urgent"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setForm({ ...form, priority: p })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-all ${
+                        form.priority === p
+                          ? p === "urgent" ? "border-red-500 bg-red-50 text-red-600"
+                            : p === "important" ? "border-amber-500 bg-amber-50 text-amber-600"
+                            : "border-blue-500 bg-blue-50 text-blue-600"
+                          : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      {p === "urgent" ? "🔥 عاجل" : p === "important" ? "⭐ مهم" : "عادي"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pin */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <button
+                  onClick={() => setForm({ ...form, is_pinned: !form.is_pinned })}
+                  className={`w-10 h-5 rounded-full transition-colors relative ${form.is_pinned ? "bg-primary" : "bg-muted-foreground/30"}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${form.is_pinned ? "right-0.5" : "left-0.5"}`} />
+                </button>
+                <span className="text-sm font-medium text-foreground">تثبيت الإشعار</span>
+              </label>
             </div>
+
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="flex-1 py-3 border border-border rounded-xl hover:bg-muted text-sm font-medium">إلغاء</button>
-              <button onClick={sendNotification} className="flex-1 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 text-sm font-bold">إرسال</button>
+              <button onClick={() => setShowModal(false)} className="flex-1 py-3 border border-border rounded-xl hover:bg-muted text-sm font-medium transition-colors">إلغاء</button>
+              <button
+                onClick={handleSend}
+                disabled={createNotif.isPending}
+                className="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 text-sm font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                {createNotif.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
+                {createNotif.isPending ? "جارٍ الإرسال..." : "إرسال"}
+              </button>
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/Header";
-import YouTubePlayer from "@/components/features/YouTubePlayer";
+import VideoPlayer from "@/components/features/VideoPlayer";
 import ConfettiCelebration from "@/components/features/ConfettiCelebration";
 import { useChallenges, useActiveChallenge, useChallengeTasks, useUserChallengeProgress, useToggleChallengeDay, useVideoChapters, useChallengeParticipantCount } from "@/hooks/useData";
 import { useAuth } from "@/lib/auth";
@@ -26,36 +26,35 @@ function extractYouTubeId(url: string): string {
   return match?.[1] ?? "";
 }
 
-function getTaskVideos(task: ChallengeTask): { id: string; title: string; lessonId?: string }[] {
-  const videos: { id: string; title: string; lessonId?: string }[] = [];
+function getTaskVideos(task: ChallengeTask): { url: string; title: string; lessonId?: string }[] {
+  const videos: { url: string; title: string; lessonId?: string }[] = [];
 
   // Primary lesson
   if (task.lesson) {
-    const vid = task.lesson.youtube_video_id || extractYouTubeId(task.lesson.video_url || "");
-    if (vid) videos.push({ id: vid, title: task.lesson.title, lessonId: task.lesson.id });
+    const videoUrl = task.lesson.video_url || (task.lesson.youtube_video_id ? `https://www.youtube.com/watch?v=${task.lesson.youtube_video_id}` : "");
+    if (videoUrl) videos.push({ url: videoUrl, title: task.lesson.title, lessonId: task.lesson.id });
   }
 
   // task_lessons (multiple)
   for (const tl of task.task_lessons ?? []) {
-    let vid = "";
+    let videoUrl = "";
     let lessonId: string | undefined;
     if (tl.lesson) {
-      vid = tl.lesson.youtube_video_id || extractYouTubeId(tl.lesson.video_url || "");
+      videoUrl = tl.lesson.video_url || (tl.lesson.youtube_video_id ? `https://www.youtube.com/watch?v=${tl.lesson.youtube_video_id}` : "");
       lessonId = tl.lesson.id;
     } else {
-      vid = extractYouTubeId(tl.custom_video_url || "");
+      videoUrl = tl.custom_video_url || "";
     }
-    if (vid) {
+    if (videoUrl) {
       const title = tl.custom_video_title || tl.lesson?.title || "فيديو";
-      videos.push({ id: vid, title, lessonId });
+      videos.push({ url: videoUrl, title, lessonId });
     }
   }
 
   // Legacy custom_video_url
   if (task.custom_video_url) {
-    const vid = extractYouTubeId(task.custom_video_url);
-    if (vid && !videos.find((v) => v.id === vid)) {
-      videos.push({ id: vid, title: "فيديو اليوم" });
+    if (!videos.find((v) => v.url === task.custom_video_url)) {
+      videos.push({ url: task.custom_video_url, title: "فيديو اليوم" });
     }
   }
 
@@ -79,7 +78,7 @@ function getTaskFiles(task: ChallengeTask): { url: string; name: string }[] {
 // ─── VIDEO WITH CHAPTERS ─────────────────────────────────────────────────────
 
 interface VideoWithChaptersProps {
-  video: { id: string; title: string; lessonId?: string };
+  video: { url: string; title: string; lessonId?: string };
   showTitle?: boolean;
 }
 
@@ -87,9 +86,9 @@ function VideoWithChapters({ video, showTitle }: VideoWithChaptersProps) {
   const { data: chapters = [] } = useVideoChapters(video.lessonId);
   return (
     <div className="rounded-xl overflow-hidden shadow-lg">
-      <YouTubePlayer
-        key={video.id}
-        videoId={video.id}
+      <VideoPlayer
+        key={video.url}
+        src={video.url}
         title={showTitle ? video.title : undefined}
         chapters={chapters}
       />
@@ -485,8 +484,8 @@ const Challenges = () => {
     return (
       <div className="min-h-screen bg-background" dir="rtl">
         <Header />
-        <main className="lg:mr-[260px] pt-16">
-          <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <main className="lg:mr-[260px] pt-16 pb-24 lg:pb-0 px-4 sm:px-6 lg:px-8">
+          <div className="min-h-[70vh] flex items-center justify-center">
             <div className="text-center max-w-md">
               <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
                 <CalendarCheck className="w-12 h-12 text-primary" />
@@ -516,7 +515,7 @@ const Challenges = () => {
         />
       )}
 
-      <main className="lg:mr-[260px] pt-16">
+        <main className="lg:mr-[260px] pt-16 pb-24 lg:pb-0 px-4 sm:px-6 lg:px-8">
         {/* All Challenges List */}
         {allChallenges.length > 0 && (
           <div className="bg-white border-b border-border">

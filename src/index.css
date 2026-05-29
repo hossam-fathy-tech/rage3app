@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Marhey:wght@300..700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,43 +7,43 @@
 @layer base {
   :root {
     --background: 210 20% 98%;
-    --foreground: 220 40% 10%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 40% 10%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 40% 10%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 220 75% 40%;
+    --primary: 174 72% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 199 80% 45%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 20% 93%;
-    --muted-foreground: 215 20% 50%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 158 60% 45%;
+    --accent: 174 72% 36%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 80% 55%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 25% 88%;
-    --input: 214 25% 88%;
-    --ring: 220 75% 40%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 174 72% 36%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
-    --sidebar-background: 220 30% 14%;
+    --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 92%;
-    --sidebar-primary: 199 80% 55%;
+    --sidebar-primary: 174 72% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 30% 20%;
+    --sidebar-accent: 222 40% 16%;
     --sidebar-accent-foreground: 210 40% 92%;
-    --sidebar-border: 220 25% 22%;
-    --sidebar-ring: 199 80% 55%;
+    --sidebar-border: 222 35% 18%;
+    --sidebar-ring: 174 72% 40%;
   }
 }
 
@@ -55,50 +54,61 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Marhey', 'Cairo', sans-serif;
+    font-family: 'Cairo', sans-serif;
     direction: rtl;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   html {
     direction: rtl;
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-white/80 backdrop-blur-sm border border-white/60 shadow-lg;
+    @apply bg-white/80 backdrop-blur-sm border border-border/50 shadow-sm;
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(220, 75%, 40%) 0%, hsl(199, 80%, 45%) 100%);
+    background: linear-gradient(135deg, hsl(174, 72%, 36%) 0%, hsl(174, 60%, 42%) 100%);
   }
 
   .gradient-hero {
-    background: linear-gradient(135deg, hsl(220, 75%, 18%) 0%, hsl(220, 60%, 30%) 40%, hsl(199, 80%, 35%) 100%);
+    background: linear-gradient(160deg, hsl(222, 47%, 11%) 0%, hsl(222, 47%, 15%) 50%, hsl(174, 40%, 18%) 100%);
   }
 
   .subject-hover {
-    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
   }
 
   .nav-link {
-    @apply text-white/80 hover:text-white transition-colors duration-200 font-medium;
+    @apply text-white/70 hover:text-white transition-colors duration-200 font-medium;
   }
 
   .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-blue-700 transition-all duration-200 font-semibold px-6 py-3 rounded-xl;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 font-semibold px-6 py-3 rounded-xl;
   }
 
   .progress-bar {
-    @apply h-2 rounded-full bg-muted overflow-hidden;
+    @apply h-1.5 rounded-full bg-muted overflow-hidden;
   }
 
   .progress-fill {
-    @apply h-full rounded-full bg-gradient-to-r from-blue-500 to-teal-500 transition-all duration-500;
+    @apply h-full rounded-full bg-primary transition-all duration-500;
   }
 
   .input-field {
-    @apply w-full px-4 py-2.5 rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm text-right transition-colors;
+    @apply w-full px-4 py-2.5 rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm text-right transition-all duration-200;
+  }
+
+  .card-clean {
+    @apply bg-white rounded-2xl border border-border/60 shadow-sm hover:shadow-md transition-all duration-200;
+  }
+
+  .section-title {
+    @apply text-lg font-bold text-foreground tracking-tight;
   }
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX,
-  Maximize2, Minimize2, Gauge, Loader2, List, Settings, X, ChevronRight,
+  Maximize2, Minimize2, Loader2, List, Settings, X, ChevronRight,
 } from "lucide-react";
 
 declare global {
@@ -27,16 +27,7 @@ interface YouTubePlayerProps {
   onTimeUpdate?: (seconds: number) => void;
 }
 
-const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-
-const QUALITY_OPTIONS = [
-  { key: "hd1080", label: "1080p HD" },
-  { key: "hd720",  label: "720p HD" },
-  { key: "large",  label: "480p" },
-  { key: "medium", label: "360p" },
-  { key: "small",  label: "240p" },
-  { key: "tiny",   label: "144p" },
-];
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 let apiLoaded = false;
 let apiLoading = false;
@@ -83,33 +74,41 @@ function getCurrentChapterIdx(chapters: VideoChapter[], currentTime: number): nu
 const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }: YouTubePlayerProps) => {
   const containerId = useRef(`yt-${Math.random().toString(36).slice(2)}`).current;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const playerRef   = useRef<any>(null);
+  const playerRef = useRef<any>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const wrapRef     = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const chapListRef = useRef<HTMLDivElement>(null);
-  const hideTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number } | null>(null);
 
-  const [isReady,          setIsReady]          = useState(false);
-  const [isPlaying,        setIsPlaying]        = useState(false);
-  const [isMuted,          setIsMuted]          = useState(false);
-  const [duration,         setDuration]         = useState(0);
-  const [currentTime,      setCurrentTime]      = useState(0);
-  const [speed,            setSpeed]            = useState(1);
-  const [volume,           setVolume]           = useState(100);
-  const [isLoading,        setIsLoading]        = useState(true);
-  const [showControls,     setShowControls]     = useState(true);
-  const [showSpeedMenu,    setShowSpeedMenu]    = useState(false);
-  const [showQualityMenu,  setShowQualityMenu]  = useState(false);
-  const [showChapters,     setShowChapters]     = useState(false);
-  const [isFullscreen,     setIsFullscreen]     = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [speed, setSpeed] = useState(1);
+  const [volume, setVolume] = useState(100);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showControls, setShowControls] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showChapters, setShowChapters] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeChapterIdx, setActiveChapterIdx] = useState(0);
-  const [availQualities,   setAvailQualities]   = useState<string[]>([]);
-  const [currentQuality,   setCurrentQuality]   = useState<string>("");
+  const [seekIndicator, setSeekIndicator] = useState<{ side: "left" | "right"; amount: number } | null>(null);
 
   const sortedChapters = [...chapters].sort((a, b) => a.start_time_seconds - b.start_time_seconds);
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // ── tracker ─────────────────────────────────────────────────────────────────
+  // Auto-hide controls
+  const resetHideTimer = useCallback(() => {
+    setShowControls(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      if (isPlaying) setShowControls(false);
+    }, 3000);
+  }, [isPlaying]);
+
+  // Tracker
   const startTracker = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
@@ -119,15 +118,13 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
         setCurrentTime(t);
         onTimeUpdate?.(t);
         if (chapters.length > 0) setActiveChapterIdx(getCurrentChapterIdx(chapters, t));
-      } catch (error: unknown) {
-        // Time update failed
-      }
-    }, 400);
+      } catch {}
+    }, 500);
   }, [chapters, onTimeUpdate]);
 
-  // ── YouTube API init ──────────────────────────────────────────────────────
+  // YouTube API init
   useEffect(() => {
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let player: any;
     loadYouTubeAPI().then(() => {
       player = new window.YT.Player(containerId, {
@@ -145,30 +142,20 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
           origin: window.location.origin,
         },
         events: {
-          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onReady: (e: { target: any }) => {
             playerRef.current = e.target;
             setDuration(e.target.getDuration?.() ?? 0);
             setIsReady(true);
             setIsLoading(false);
           },
-          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onStateChange: (e: any) => {
             const YT = window.YT.PlayerState;
             if (e.data === YT.PLAYING) {
               setIsPlaying(true);
               setIsLoading(false);
               setDuration(playerRef.current?.getDuration?.() ?? 0);
-              // fetch qualities once video starts
-              try {
-                const qs: string[] = playerRef.current?.getAvailableQualityLevels?.() ?? [];
-                const filtered = qs.filter((q) => q !== "auto" && q !== "unknown");
-                if (filtered.length) setAvailQualities(filtered);
-                const cur: string = playerRef.current?.getPlaybackQuality?.() ?? "";
-                if (cur && cur !== "unknown") setCurrentQuality(cur);
-              } catch (error: unknown) {
-                // Quality levels not available
-              }
               startTracker();
             } else if (e.data === YT.PAUSED) {
               setIsPlaying(false);
@@ -180,21 +167,16 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
               setIsLoading(true);
             }
           },
-          onPlaybackQualityChange: (e: { data: string }) => {
-            if (e.data && e.data !== "unknown") setCurrentQuality(e.data);
-          },
         },
       });
     });
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      try { player?.destroy(); } catch (error: unknown) {
-        // Player cleanup error
-      }
+      try { player?.destroy(); } catch {}
     };
   }, [videoId]);
 
-  // ── fullscreen listener ──────────────────────────────────────────────────
+  // Fullscreen listener
   useEffect(() => {
     const onFSChange = () => {
       const isFull = !!document.fullscreenElement;
@@ -205,7 +187,7 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
     return () => document.removeEventListener("fullscreenchange", onFSChange);
   }, []);
 
-  // ── scroll active chapter into view ──────────────────────────────────────
+  // Scroll active chapter
   useEffect(() => {
     if (showChapters && chapListRef.current) {
       const active = chapListRef.current.querySelector("[data-active='true']");
@@ -213,16 +195,13 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
     }
   }, [activeChapterIdx, showChapters]);
 
-  // ── controls auto-hide ────────────────────────────────────────────────────
-  const resetHideTimer = useCallback(() => {
-    setShowControls(true);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => {
-      setShowControls(false);
-    }, 3200);
-  }, []);
+  // Controls auto-hide
+  useEffect(() => {
+    resetHideTimer();
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [isPlaying, resetHideTimer]);
 
-  // ── player actions ────────────────────────────────────────────────────────
+  // Player actions
   const togglePlay = () => {
     if (!playerRef.current) return;
     isPlaying ? playerRef.current.pauseVideo() : playerRef.current.playVideo();
@@ -245,24 +224,13 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
   const toggleMute = () => {
     if (!playerRef.current) return;
     if (isMuted) { playerRef.current.unMute(); setIsMuted(false); }
-    else          { playerRef.current.mute();   setIsMuted(true); }
+    else { playerRef.current.mute(); setIsMuted(true); }
   };
 
   const setPlaybackSpeed = (s: number) => {
     playerRef.current?.setPlaybackRate(s);
     setSpeed(s);
-    setShowSpeedMenu(false);
-  };
-
-  const applyQuality = (q: string) => {
-    if (!playerRef.current) return;
-    try {
-      playerRef.current.setPlaybackQuality(q);
-      setCurrentQuality(q);
-    } catch (error: unknown) {
-      // Quality setting not supported
-    }
-    setShowQualityMenu(false);
+    setShowSettingsMenu(false);
   };
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -287,12 +255,29 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
     else wrapRef.current.requestFullscreen();
   };
 
-  const closeAllMenus = () => {
-    setShowSpeedMenu(false);
-    setShowQualityMenu(false);
-  };
+  // Double-tap seeking (mobile)
+  const handleVideoClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!playerRef.current || !duration) return;
+    const now = Date.now();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
 
-  // quality label
+    if (lastTapRef.current && (now - lastTapRef.current.time) < 300) {
+      const isLeftTap = x < rect.left + rect.width / 3;
+      const isRightTap = x > rect.right - rect.width / 3;
+      if (isLeftTap || isRightTap) {
+        const delta = isLeftTap ? -10 : 10;
+        const t = playerRef.current.getCurrentTime?.() ?? 0;
+        playerRef.current.seekTo(Math.max(0, t + delta), true);
+        setSeekIndicator({ side: isLeftTap ? "left" : "right", amount: Math.abs(delta) });
+        setTimeout(() => setSeekIndicator(null), 600);
+      }
+      lastTapRef.current = null;
+    } else {
+      lastTapRef.current = { time: now, x };
+    }
+  }, [duration]);
+
   const qualLabel = (q: string) => {
     const map: Record<string, string> = {
       highres: "4K", hd1080: "1080p", hd720: "720p",
@@ -301,356 +286,197 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
     return map[q] ?? q.toUpperCase();
   };
 
-  // visible quality options filtered to what's available
-  const visibleQualities = QUALITY_OPTIONS.filter((o) =>
-    availQualities.includes(o.key)
-  );
-
   return (
-    <div className="relative bg-black rounded-xl overflow-hidden select-none" dir="ltr" ref={wrapRef}>
-      {/* ── Video wrapper ────────────────────────────────────────────── */}
+    <div className="relative bg-[#0F172A] rounded-xl overflow-hidden select-none" dir="ltr" ref={wrapRef}>
+      {/* Video wrapper */}
       <div
-        className="relative"
+        className="relative w-full"
         style={{ aspectRatio: "16/9" }}
         onMouseMove={resetHideTimer}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => isPlaying && setShowControls(false)}
-        onClick={togglePlay}
+        onClick={handleVideoClick}
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* iframe */}
         <div id={containerId} className="w-full h-full absolute inset-0" style={{ pointerEvents: "none" }} />
 
-        {/* click-overlay (above iframe, below controls) */}
-        <div className="absolute inset-0 z-10" onContextMenu={(e) => e.preventDefault()} />
+        {/* Click overlay */}
+        <div className="absolute inset-0 z-10" />
 
-        {/* loading */}
+        {/* Loading */}
         {isLoading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60">
-            <Loader2 className="w-10 h-10 text-white animate-spin" />
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0F172A]/60">
+            <Loader2 className="w-8 h-8 text-white/70 animate-spin" />
           </div>
         )}
 
-        {/* ── CONTROLS OVERLAY ─────────────────────────────────────── */}
-        <div
-          className={`absolute inset-x-0 bottom-0 z-30 transition-opacity duration-300 ${showControls || !isPlaying ? "opacity-100" : "opacity-0"}`}
-          style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.92))" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* title */}
-          {title && (
-            <div className="px-4 pt-4 pb-1">
-              <p className="text-white text-sm font-semibold truncate drop-shadow">{title}</p>
+        {/* Seek indicator (double-tap) */}
+        {seekIndicator && (
+          <div className={`absolute top-1/2 -translate-y-1/2 z-25 flex flex-col items-center gap-1 ${
+            seekIndicator.side === "left" ? "left-6" : "right-6"
+          }`}>
+            <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+              {seekIndicator.side === "left"
+                ? <RotateCcw className="w-5 h-5 text-white" />
+                : <RotateCw className="w-5 h-5 text-white" />
+              }
             </div>
-          )}
+            <span className="text-white text-xs font-bold">{seekIndicator.amount}s</span>
+          </div>
+        )}
 
-          {/* chapter markers on progress */}
-          {sortedChapters.length > 0 && duration > 0 && (
-            <div className="relative h-2 mx-4 mb-0.5">
-              {sortedChapters.map((ch) => (
-                <button
-                  key={ch.id}
-                  className="absolute top-0 w-0.5 h-2 bg-white/40 hover:bg-white transition-colors cursor-pointer rounded-full"
-                  style={{ left: `${(ch.start_time_seconds / duration) * 100}%` }}
-                  onClick={(e) => { e.stopPropagation(); seekToChapter(ch); }}
-                  title={ch.title}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* progress bar */}
-          <div
-            className="mx-4 h-1.5 bg-white/25 rounded-full cursor-pointer group/bar"
-            onClick={handleSeekClick}
-          >
-            <div
-              className="h-full bg-primary rounded-full relative transition-[width] duration-150"
-              style={{ width: `${progress}%` }}
-            >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+        {/* Center play button (when paused) */}
+        {!isPlaying && !isLoading && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center" onClick={(e) => { e.stopPropagation(); togglePlay(); }}>
+            <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+              <Play className="w-7 h-7 text-white ml-0.5" fill="white" />
             </div>
           </div>
+        )}
 
-          {/* buttons row */}
-          <div className="flex items-center gap-1 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-            {/* play */}
-            <button
-              onClick={togglePlay}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/15 transition-colors"
-            >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            </button>
+        {/* Controls overlay */}
+        <div
+          className={`absolute inset-x-0 bottom-0 z-30 transition-opacity duration-300 ${showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Gradient backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 
-            {/* seek -10 */}
-            <button onClick={() => seek(-10)} className="w-8 h-8 flex items-center justify-center rounded-lg text-white hover:bg-white/15 transition-colors" title="-10s">
-              <RotateCcw className="w-4 h-4" />
-            </button>
+          {/* Content */}
+          <div className="relative z-10">
+            {/* Title */}
+            {title && (
+              <div className="px-4 pt-3 pb-1">
+                <p className="text-white/80 text-xs font-medium truncate">{title}</p>
+              </div>
+            )}
 
-            {/* seek +10 */}
-            <button onClick={() => seek(10)} className="w-8 h-8 flex items-center justify-center rounded-lg text-white hover:bg-white/15 transition-colors" title="+10s">
-              <RotateCw className="w-4 h-4" />
-            </button>
-
-            {/* volume */}
-            <div className="flex items-center gap-1">
-              <button onClick={toggleMute} className="w-8 h-8 flex items-center justify-center rounded-lg text-white hover:bg-white/15 transition-colors">
-                {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-              <input
-                type="range" min={0} max={100} value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="w-16 accent-primary cursor-pointer hidden sm:block"
-                style={{ accentColor: "#3B82F6" }}
-              />
+            {/* Progress bar */}
+            <div className="px-4 mb-1">
+              <div
+                className="relative h-1 bg-white/15 rounded-full cursor-pointer group/progress"
+                onClick={handleSeekClick}
+              >
+                <div
+                  className="h-full bg-primary rounded-full relative transition-[width] duration-200"
+                  style={{ width: `${progress}%` }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow-sm" />
+                </div>
+              </div>
             </div>
 
-            {/* time */}
-            <span className="text-white/70 text-xs font-mono flex-1 text-left px-1">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
+            {/* Controls row */}
+            <div className="flex items-center gap-1 px-3 pb-2.5">
+              {/* Play */}
+              <button onClick={togglePlay} className="w-8 h-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors">
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" fill="currentColor" />}
+              </button>
 
-            {/* active chapter name */}
-            {sortedChapters.length > 0 && isFullscreen && (
-              <span className="text-white/60 text-xs hidden lg:block max-w-[150px] truncate">
-                {sortedChapters[activeChapterIdx]?.title}
+              {/* Seek -10 */}
+              <button onClick={() => seek(-10)} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors" title="-10s">
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Seek +10 */}
+              <button onClick={() => seek(10)} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors" title="+10s">
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Volume */}
+              <div className="flex items-center gap-1 group/vol">
+                <button onClick={toggleMute} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+                  {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+                <input
+                  type="range" min={0} max={100} value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-0 group-hover/vol:w-16 transition-all duration-200 accent-primary cursor-pointer overflow-hidden opacity-0 group-hover/vol:opacity-100"
+                />
+              </div>
+
+              {/* Time */}
+              <span className="text-white/40 text-[11px] font-mono flex-1 px-2 select-none">
+                {formatTime(currentTime)} <span className="text-white/20">/</span> {formatTime(duration)}
               </span>
-            )}
 
-            {/* chapters toggle (only in fullscreen) */}
-            {sortedChapters.length > 0 && isFullscreen && (
-              <button
-                onClick={() => { setShowChapters((v) => !v); closeAllMenus(); }}
-                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all border ${
-                  showChapters
-                    ? "bg-white text-black border-white"
-                    : "text-white border-white/30 hover:border-white/60 hover:bg-white/10"
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                <span>الأقسام</span>
-              </button>
-            )}
+              {/* Chapters toggle */}
+              {sortedChapters.length > 0 && (
+                <button
+                  onClick={() => { setShowChapters((v) => !v); setShowSettingsMenu(false); }}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                    showChapters ? "text-primary bg-primary/15" : "text-white/50 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+              )}
 
-            {/* chapters toggle (below player, non-fullscreen) */}
-            {sortedChapters.length > 0 && !isFullscreen && (
-              <button
-                onClick={() => { setShowChapters((v) => !v); closeAllMenus(); }}
-                className={`flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-lg transition-colors ${
-                  showChapters ? "bg-white/25 text-white" : "text-white/80 hover:bg-white/15"
-                }`}
-              >
-                <List className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">الأقسام</span>
-              </button>
-            )}
-
-            {/* quality */}
-            {visibleQualities.length > 0 && (
+              {/* Settings */}
               <div className="relative">
                 <button
-                  onClick={() => { setShowQualityMenu((v) => !v); setShowSpeedMenu(false); setShowChapters(isFullscreen ? showChapters : false); }}
-                  className="flex items-center gap-1 text-white text-xs font-bold px-2 py-1.5 rounded-lg hover:bg-white/15 transition-colors"
-                  title="الجودة"
+                  onClick={() => { setShowSettingsMenu((v) => !v); setShowChapters(false); }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <Settings className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{currentQuality ? qualLabel(currentQuality) : "HD"}</span>
                 </button>
-                {showQualityMenu && (
-                  <div
-                    className="absolute bottom-11 left-0 bg-gray-950/98 rounded-xl overflow-hidden border border-white/15 min-w-[110px] z-50 shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="px-3 py-1.5 border-b border-white/10 text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                      جودة الفيديو
+                {showSettingsMenu && (
+                  <div className="absolute bottom-10 left-0 bg-[#1E293B] rounded-xl overflow-hidden border border-white/10 min-w-[160px] z-50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    {/* Speed */}
+                    <div className="px-3 py-2 border-b border-white/5">
+                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-1.5">السرعة</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {SPEEDS.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setPlaybackSpeed(s)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                              speed === s ? "bg-primary text-white" : "text-white/60 hover:bg-white/10"
+                            }`}
+                          >
+                            {s}x
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    {visibleQualities.map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => applyQuality(opt.key)}
-                        className={`w-full text-sm px-4 py-2.5 text-left flex items-center gap-2 transition-colors ${
-                          currentQuality === opt.key
-                            ? "bg-primary text-white"
-                            : "text-white/80 hover:bg-white/10"
-                        }`}
-                      >
-                        {currentQuality === opt.key && <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0" />}
-                        {opt.label}
-                      </button>
-                    ))}
+                    {/* Current speed indicator */}
+                    <div className="px-3 py-2 flex items-center justify-between">
+                      <span className="text-xs text-white/40">السرعة الحالية</span>
+                      <span className="text-xs font-bold text-primary">{speed}x</span>
+                    </div>
                   </div>
                 )}
               </div>
-            )}
 
-            {/* speed */}
-            <div className="relative">
-              <button
-                onClick={() => { setShowSpeedMenu((v) => !v); setShowQualityMenu(false); }}
-                className="flex items-center gap-1 text-white text-xs font-bold px-2 py-1.5 rounded-lg hover:bg-white/15 transition-colors"
-              >
-                <Gauge className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{speed}×</span>
+              {/* Fullscreen */}
+              <button onClick={handleFullscreen} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
-              {showSpeedMenu && (
-                <div
-                  className="absolute bottom-11 left-0 bg-gray-950/98 rounded-xl overflow-hidden border border-white/15 min-w-[90px] z-50 shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="px-3 py-1.5 border-b border-white/10 text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                    السرعة
-                  </div>
-                  {SPEEDS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setPlaybackSpeed(s)}
-                      className={`w-full text-sm px-4 py-2.5 text-left flex items-center gap-2 transition-colors ${
-                        speed === s ? "bg-primary text-white" : "text-white/80 hover:bg-white/10"
-                      }`}
-                    >
-                      {speed === s && <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0" />}
-                      {s}×
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-
-            {/* fullscreen */}
-            <button
-              onClick={handleFullscreen}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-white hover:bg-white/15 transition-colors"
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
           </div>
         </div>
-
-        {/* ── FULLSCREEN CHAPTERS PANEL ──────────────────────────────── */}
-        {isFullscreen && sortedChapters.length > 0 && (
-          <div
-            dir="rtl"
-            className={`absolute top-0 right-0 bottom-0 z-40 flex flex-col transition-transform duration-300 ease-in-out ${
-              showChapters ? "translate-x-0" : "translate-x-full"
-            }`}
-            style={{ width: "clamp(260px, 28%, 340px)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* glass background */}
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md border-l border-white/10" />
-
-            {/* header */}
-            <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <List className="w-4 h-4 text-white/60" />
-                <span className="text-white font-bold text-sm">أقسام الفيديو</span>
-                <span className="text-xs text-white/40 bg-white/10 px-2 py-0.5 rounded-full">
-                  {sortedChapters.length}
-                </span>
-              </div>
-              <button
-                onClick={() => setShowChapters(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* chapter list */}
-            <div className="relative z-10 flex-1 overflow-y-auto" ref={chapListRef}>
-              {sortedChapters.map((ch, i) => {
-                const isActive = i === activeChapterIdx;
-                const nextCh   = sortedChapters[i + 1];
-                const chDone   = duration > 0 && currentTime > ch.start_time_seconds;
-                const chProg   = isActive && duration > 0
-                  ? Math.min(100, ((currentTime - ch.start_time_seconds) /
-                    ((nextCh?.start_time_seconds ?? duration) - ch.start_time_seconds)) * 100)
-                  : chDone ? 100 : 0;
-
-                return (
-                  <button
-                    key={ch.id}
-                    data-active={isActive}
-                    onClick={() => seekToChapter(ch)}
-                    className={`w-full flex items-start gap-3 px-4 py-3.5 text-right transition-all border-r-2 ${
-                      isActive
-                        ? "bg-primary/20 border-primary"
-                        : "border-transparent hover:bg-white/8 hover:border-white/20"
-                    }`}
-                  >
-                    {/* index bubble */}
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5 transition-colors ${
-                      isActive ? "bg-primary text-white shadow-lg shadow-primary/30" : "bg-white/10 text-white/50"
-                    }`}>
-                      {i + 1}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold leading-snug transition-colors ${
-                        isActive ? "text-white" : "text-white/65 hover:text-white/90"
-                      }`}>
-                        {ch.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-white/35 text-xs font-mono">{formatTime(ch.start_time_seconds)}</span>
-                        {/* mini progress bar */}
-                        {(isActive || chDone) && (
-                          <div className="flex-1 h-0.5 bg-white/15 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${isActive ? "bg-primary" : "bg-white/30"}`}
-                              style={{ width: `${chProg}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* toggle tab (visible when panel is closed, to reopen) */}
-          </div>
-        )}
-
-        {/* Tab to reopen chapters panel when hidden (fullscreen only) */}
-        {isFullscreen && sortedChapters.length > 0 && !showChapters && (
-          <button
-            className="absolute top-1/2 right-0 -translate-y-1/2 z-40 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/90 transition-all px-2 py-4 rounded-l-xl border border-white/10 border-r-0 group"
-            onClick={(e) => { e.stopPropagation(); setShowChapters(true); }}
-            title="عرض الأقسام"
-          >
-            <List className="w-4 h-4" />
-            <span className="text-xs font-bold hidden group-hover:block writing-mode-vertical" style={{ writingMode: "vertical-rl" }}>
-              الأقسام
-            </span>
-          </button>
-        )}
       </div>
 
-      {/* ── CHAPTERS PANEL (non-fullscreen, below player) ─────────────── */}
+      {/* Chapters panel (non-fullscreen) */}
       {!isFullscreen && showChapters && sortedChapters.length > 0 && (
-        <div className="bg-gray-900 border-t border-white/10 max-h-60 overflow-y-auto" dir="rtl" ref={chapListRef}>
-          <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-gray-900/95 backdrop-blur-sm z-10">
+        <div className="bg-[#1E293B] border-t border-white/5 max-h-52 overflow-y-auto" dir="rtl" ref={chapListRef}>
+          <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between sticky top-0 bg-[#1E293B]/95 backdrop-blur-sm z-10">
             <div className="flex items-center gap-2">
-              <List className="w-4 h-4 text-white/50" />
-              <span className="text-white/60 text-xs font-bold">أقسام الفيديو ({sortedChapters.length})</span>
+              <List className="w-3.5 h-3.5 text-white/30" />
+              <span className="text-white/40 text-xs font-medium">أقسام الفيديو ({sortedChapters.length})</span>
             </div>
-            <button
-              onClick={() => setShowChapters(false)}
-              className="w-6 h-6 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-            >
+            <button onClick={() => setShowChapters(false)} className="text-white/30 hover:text-white/60 transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
           {sortedChapters.map((ch, i) => {
             const isActive = i === activeChapterIdx;
-            const nextCh   = sortedChapters[i + 1];
-            const chProg   = isActive && duration > 0
+            const nextCh = sortedChapters[i + 1];
+            const chProg = isActive && duration > 0
               ? Math.min(100, ((currentTime - ch.start_time_seconds) /
                 ((nextCh?.start_time_seconds ?? duration) - ch.start_time_seconds)) * 100)
               : 0;
-
             return (
               <button
                 key={ch.id}
@@ -658,27 +484,63 @@ const YouTubePlayer = ({ videoId, title, chapters = [], onEnded, onTimeUpdate }:
                 onClick={() => seekToChapter(ch)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-right transition-colors border-r-2 ${
                   isActive
-                    ? "bg-primary/20 border-primary"
-                    : "border-transparent hover:bg-white/5"
+                    ? "bg-primary/10 border-primary"
+                    : "border-transparent hover:bg-white/[0.03]"
                 }`}
               >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${
-                  isActive ? "bg-primary text-white" : "bg-white/10 text-white/60"
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                  isActive ? "bg-primary text-white" : "bg-white/5 text-white/30"
                 }`}>
                   {i + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold truncate ${isActive ? "text-white" : "text-white/70"}`}>{ch.title}</p>
+                  <p className={`text-xs font-medium truncate ${isActive ? "text-white" : "text-white/50"}`}>{ch.title}</p>
                   {isActive && duration > 0 && (
-                    <div className="h-0.5 bg-white/20 rounded-full mt-1 overflow-hidden">
+                    <div className="h-0.5 bg-white/10 rounded-full mt-1 overflow-hidden">
                       <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${chProg}%` }} />
                     </div>
                   )}
                 </div>
-                <span className="text-white/40 text-xs font-mono flex-shrink-0">{formatTime(ch.start_time_seconds)}</span>
+                <span className="text-white/20 text-[10px] font-mono flex-shrink-0">{formatTime(ch.start_time_seconds)}</span>
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Chapters panel (fullscreen) */}
+      {isFullscreen && showChapters && sortedChapters.length > 0 && (
+        <div dir="rtl" className="absolute top-0 right-0 bottom-0 z-40 flex flex-col transition-transform duration-300 ease-in-out translate-x-0" style={{ width: "clamp(260px, 28%, 340px)" }}>
+          <div className="absolute inset-0 bg-[#0F172A]/95 backdrop-blur-xl border-l border-white/5" />
+          <div className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-white/5 flex-shrink-0">
+            <span className="text-white/60 text-xs font-medium">أقسام الفيديو</span>
+            <button onClick={() => setShowChapters(false)} className="text-white/40 hover:text-white transition-colors">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="relative z-10 flex-1 overflow-y-auto" ref={chapListRef}>
+            {sortedChapters.map((ch, i) => {
+              const isActive = i === activeChapterIdx;
+              return (
+                <button
+                  key={ch.id}
+                  data-active={isActive}
+                  onClick={() => seekToChapter(ch)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-right transition-colors border-r-2 ${
+                    isActive ? "bg-primary/10 border-primary" : "border-transparent hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                    isActive ? "bg-primary text-white" : "bg-white/5 text-white/30"
+                  }`}>
+                    {i + 1}
+                  </div>
+                  <p className={`text-xs font-medium truncate ${isActive ? "text-white" : "text-white/50"}`}>{ch.title}</p>
+                  <span className="text-white/20 text-[10px] font-mono flex-shrink-0 mr-auto">{formatTime(ch.start_time_seconds)}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

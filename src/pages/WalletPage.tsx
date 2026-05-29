@@ -118,12 +118,12 @@ const WalletPage = () => {
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
       <Header />
-      <div className="lg:mr-[260px] p-4 md:p-8 pt-16">
+      <div className="lg:mr-[260px] px-4 md:px-8 pt-16 pb-24 lg:pb-12">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">المحفظة</h1>
 
         {/* Balance Card */}
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white mb-8 shadow-lg">
+        <div className="bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-6 text-white mb-8 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/80 text-sm mb-1">الرصيد الحالي</p>
@@ -138,7 +138,7 @@ const WalletPage = () => {
         {/* Recharge Section */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-emerald-500" />
+            <CreditCard className="w-5 h-5 text-primary" />
             شحن الرصيد
           </h2>
           <div className="flex gap-3">
@@ -147,13 +147,13 @@ const WalletPage = () => {
               value={rechargeCode}
               onChange={(e) => setRechargeCode(e.target.value.toUpperCase())}
               placeholder="أدخل كود الشحن"
-              className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
               dir="ltr"
             />
             <button
               onClick={handleRecharge}
               disabled={recharging}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50 flex items-center gap-2"
+              className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50 flex items-center gap-2"
             >
               {recharging ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowUpRight className="w-5 h-5" />}
               شحن
@@ -164,7 +164,7 @@ const WalletPage = () => {
         {/* Transactions */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <History className="w-5 h-5 text-emerald-500" />
+            <History className="w-5 h-5 text-primary" />
             سجل المعاملات
           </h2>
           {transactions.length === 0 ? (
@@ -174,7 +174,7 @@ const WalletPage = () => {
               {transactions.map((txn) => (
                 <div key={txn.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === 'credit' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === 'credit' ? 'bg-primary/10 text-primary' : 'bg-red-100 text-red-600'}`}>
                       {txn.type === 'credit' ? <Gift className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
                     </div>
                     <div>
@@ -182,7 +182,7 @@ const WalletPage = () => {
                       <p className="text-xs text-gray-500">{new Date(txn.created_at).toLocaleDateString("ar")}</p>
                     </div>
                   </div>
-                  <span className={`font-bold ${txn.type === 'credit' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <span className={`font-bold ${txn.type === 'credit' ? 'text-primary' : 'text-red-600'}`}>
                     {txn.type === 'credit' ? '+' : '-'}{txn.amount} جنيه
                   </span>
                 </div>

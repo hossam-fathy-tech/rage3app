@@ -59,7 +59,7 @@ export default function SummariesPage() {
       <Header />
       <BottomNav />
 
-      <main className="lg:mr-[260px] max-w-4xl mx-auto px-4 pt-16 pb-8">
+      <main className="lg:mr-[260px] max-w-4xl mx-auto px-4 pt-16 pb-24 lg:pb-16">
         {/* Header */}
         <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-2xl p-6 mb-6 text-white">
           <div className="flex items-center gap-3">
@@ -145,7 +145,7 @@ export default function SummariesPage() {
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
             <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500 font-medium">مفيش ملخصات لسه</p>
-            <Link to="/courses" className="text-emerald-600 font-bold mt-2 inline-block hover:underline">
+            <Link to="/courses" className="text-primary font-bold mt-2 inline-block hover:underline">
               تصفح الكورسات
             </Link>
           </div>

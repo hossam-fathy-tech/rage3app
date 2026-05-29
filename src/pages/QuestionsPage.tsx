@@ -90,7 +90,7 @@ export default function QuestionsPage() {
       <Header />
       <BottomNav />
 
-      <main className="lg:mr-[260px] max-w-4xl mx-auto px-4 pt-16 pb-8">
+      <main className="lg:mr-[260px] max-w-4xl mx-auto px-4 pt-16 pb-24 lg:pb-16">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 mb-6 text-white">
           <div className="flex items-center gap-3 mb-3">
@@ -213,14 +213,14 @@ export default function QuestionsPage() {
                           <div
                             key={opt.key}
                             className={`p-3 rounded-xl border-2 text-sm ${
-                              isCorrect ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold" :
+                              isCorrect ? "border-primary bg-primary/5 text-primary font-semibold" :
                               isSelected ? "border-red-500 bg-red-50 text-red-700 font-semibold" :
                               "border-gray-100 text-gray-400"
                             }`}
                           >
                             <span className="font-bold ml-2 text-base">{opt.key.toUpperCase()})</span>
                             {opt.label}
-                            {isCorrect && <span className="mr-2 text-emerald-600">✓</span>}
+                            {isCorrect && <span className="mr-2 text-primary">✓</span>}
                             {isSelected && !isCorrect && <span className="mr-2 text-red-600">✗</span>}
                           </div>
                         );
@@ -242,7 +242,7 @@ export default function QuestionsPage() {
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
             <HelpCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500 font-medium">مفيش أسئلة لسه</p>
-            <Link to="/courses" className="text-emerald-600 font-bold mt-2 inline-block hover:underline">
+            <Link to="/courses" className="text-primary font-bold mt-2 inline-block hover:underline">
               تصفح الكورسات
             </Link>
           </div>

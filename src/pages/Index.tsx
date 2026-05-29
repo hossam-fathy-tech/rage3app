@@ -22,7 +22,7 @@ const features = [
     title: "محتوى منظم", 
     desc: "هيكل واضح من المادة للدرس بدون تشتت", 
     icon: BookMarked, 
-    color: "from-emerald-500 to-teal-600"
+    color: "from-primary to-primary/90"
   },
   { 
     title: "متابعة التقدم", 
@@ -135,13 +135,13 @@ const Index = () => {
   };
 
   const trackInfo: Record<string, { name: string; color: string; icon: any }> = {
-    "science-bio": { name: "علمي علوم", color: "from-emerald-500 to-teal-500", icon: BookOpen },
+    "science-bio": { name: "علمي علوم", color: "from-primary to-primary/90", icon: BookOpen },
     "science-math": { name: "علمي رياضة", color: "from-blue-500 to-indigo-500", icon: Target },
     "literary": { name: "أدبي", color: "from-amber-500 to-orange-500", icon: Layers },
   };
 
   const quickActions = [
-    { label: "المواد", icon: BookOpen, to: "/subjects", color: "from-emerald-500 to-teal-500", desc: "تصفح موادك" },
+    { label: "المواد", icon: BookOpen, to: "/subjects", color: "from-primary to-primary/90", desc: "تصفح موادك" },
     { label: "الكورسات", icon: Video, to: "/courses", color: "from-blue-500 to-indigo-500", desc: "كل الكورسات" },
     { label: "التحديات", icon: Target, to: "/challenges", color: "from-purple-500 to-pink-500", desc: "اختبر نفسك" },
     { label: "المحفظة", icon: Wallet, to: "/wallet", color: "from-amber-500 to-orange-500", desc: "رصيدك" },
@@ -203,15 +203,15 @@ const Index = () => {
       <div className="min-h-screen bg-gray-50" dir="rtl">
         <Header />
 
-        <main className="lg:mr-[260px] px-4 sm:px-6 lg:px-8 py-8 pt-20">
+        <main className="lg:mr-[260px] px-4 sm:px-6 lg:px-8 py-8 pt-20 pb-24 lg:pb-0">
           {/* Welcome Banner */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-8 mb-8"
+            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 mb-8"
           >
             <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
               <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
             </div>
@@ -221,7 +221,7 @@ const Index = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${track?.color || "from-emerald-500 to-teal-500"} flex items-center justify-center shadow-lg`}
+                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${track?.color || "from-primary to-primary/90"} flex items-center justify-center shadow-lg`}
                 >
                   <TrackIcon className="w-8 h-8 text-white" />
                 </motion.div>
@@ -326,7 +326,7 @@ const Index = () => {
 
                 {activitiesLoading ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
                 ) : activities.length > 0 ? (
                   <div className="space-y-3">
@@ -340,7 +340,7 @@ const Index = () => {
                       const Icon = iconMap[activity.type] || Sparkles;
                       const colorMap: Record<string, string> = {
                         course: "from-blue-500 to-cyan-500",
-                        lecture: "from-emerald-500 to-teal-500",
+                        lecture: "from-primary to-primary/90",
                         teacher: "from-purple-500 to-pink-500",
                         subject: "from-amber-500 to-orange-500",
                       };
@@ -390,7 +390,7 @@ const Index = () => {
                   <h2 className="text-2xl font-black text-slate-800">أحدث الكورسات</h2>
                   <p className="text-slate-500 mt-1">ابدأ بأي كورس دلوقتي</p>
                 </div>
-                <Link to="/courses" className="inline-flex items-center gap-1 text-emerald-600 font-bold hover:underline text-sm">
+                <Link to="/courses" className="inline-flex items-center gap-1 text-primary font-bold hover:underline text-sm">
                   عرض الكل
                   <ChevronLeft className="w-4 h-4" />
                 </Link>
@@ -398,7 +398,7 @@ const Index = () => {
 
               {coursesLoading ? (
                 <div className="flex justify-center py-16 bg-white rounded-2xl">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : latestCourses.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -429,7 +429,7 @@ const Index = () => {
                 <h2 className="text-2xl font-black text-slate-800">موادك الدراسية</h2>
                 <p className="text-slate-500 mt-1">اختر مادة وابدأ المذاكرة</p>
               </div>
-              <Link to="/subjects" className="inline-flex items-center gap-1 text-emerald-600 font-bold hover:underline text-sm">
+              <Link to="/subjects" className="inline-flex items-center gap-1 text-primary font-bold hover:underline text-sm">
                 عرض الكل
                 <ChevronLeft className="w-4 h-4" />
               </Link>
@@ -437,7 +437,7 @@ const Index = () => {
 
             {subjectsLoading ? (
               <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : filteredSubjects.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -469,7 +469,7 @@ const Index = () => {
   if (loading && !authTimedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     );
   }
@@ -492,7 +492,7 @@ const Index = () => {
             <motion.div 
               animate={{ x: [0, 80, 0], y: [0, -40, 0] }}
               transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-40 left-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-[100px]"
+              className="absolute top-40 left-20 w-80 h-80 rounded-full bg-primary/10 blur-[100px]"
             />
             <motion.div 
               animate={{ x: [0, -60, 0], y: [0, 60, 0] }}
@@ -530,7 +530,7 @@ const Index = () => {
                 >
                   ذاكر بذكاء
                   <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary/70 via-cyan-400 to-blue-400">
                     مش بجهد أكتر
                   </span>
                 </motion.h1>
@@ -552,7 +552,7 @@ const Index = () => {
                 >
                   <Link
                     to="/login"
-                    className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-lg px-10 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5"
+                    className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary/90 text-white font-bold text-lg px-10 py-4 rounded-2xl transition-all duration-300 shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5"
                   >
                     <Play className="w-5 h-5 fill-white" />
                     ابدأ مجانًا
@@ -573,15 +573,15 @@ const Index = () => {
                   className="flex flex-wrap items-center justify-center lg:justify-start gap-6 mt-10 text-white/40 text-sm"
                 >
                   <span className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle className="w-4 h-4 text-primary/70" />
                     مجاني 100%
                   </span>
                   <span className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle className="w-4 h-4 text-primary/70" />
                     بدون بطاقة ائتمان
                   </span>
                   <span className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle className="w-4 h-4 text-primary/70" />
                     محتوى محدث
                   </span>
                 </motion.div>
@@ -596,8 +596,8 @@ const Index = () => {
               >
                 <div className="space-y-4">
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center mb-4">
-                      <BookOpen className="w-6 h-6 text-emerald-400" />
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4">
+                      <BookOpen className="w-6 h-6 text-primary/70" />
                     </div>
                     <p className="text-4xl font-black text-white">{subjects.length}</p>
                     <p className="text-sm text-white/50 mt-1">مادة دراسية</p>
@@ -637,7 +637,7 @@ const Index = () => {
               className="lg:hidden mt-16 grid grid-cols-2 sm:grid-cols-4 gap-3"
             >
               {[
-                { label: "مادة", value: subjects.length, icon: BookOpen, color: "text-emerald-400" },
+                { label: "مادة", value: subjects.length, icon: BookOpen, color: "text-primary/70" },
                 { label: "كورس", value: courses.length, icon: Layers, color: "text-purple-400" },
                 { label: "محاضرة", value: totalLectures, icon: Video, color: "text-blue-400" },
                 { label: "معلم", value: uniqueTeachers, icon: Award, color: "text-amber-400" },
@@ -664,7 +664,7 @@ const Index = () => {
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div {...fadeInUp} className="text-center mb-16">
-              <span className="inline-block px-4 py-1.5 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-full mb-4">
+              <span className="inline-block px-4 py-1.5 bg-primary/5 text-primary text-sm font-semibold rounded-full mb-4">
                 ليه راجع؟
               </span>
               <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4">كل اللي محتاجه في مكان واحد</h2>
@@ -708,7 +708,7 @@ const Index = () => {
 
             {subjectsLoading ? (
               <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : subjects.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -723,7 +723,7 @@ const Index = () => {
                     <div className="relative">
                       <SubjectCard subject={subject} index={i} />
                       <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
-                        <Link to="/login" className="bg-emerald-500 text-white font-bold px-6 py-2 rounded-xl hover:bg-emerald-600 transition-colors">
+                        <Link to="/login" className="bg-primary text-white font-bold px-6 py-2 rounded-xl hover:bg-primary/90 transition-colors">
                           سجل دخولك للمشاهدة
                         </Link>
                       </div>
@@ -734,7 +734,7 @@ const Index = () => {
             ) : null}
 
             <motion.div {...fadeInUp} className="text-center mt-12">
-              <Link to="/login" className="inline-flex items-center gap-2 text-emerald-600 font-bold hover:underline text-lg">
+              <Link to="/login" className="inline-flex items-center gap-2 text-primary font-bold hover:underline text-lg">
                 سجل دخولك لعرض كل المواد
                 <ArrowLeft className="w-5 h-5" />
               </Link>
@@ -745,7 +745,7 @@ const Index = () => {
         {/* Testimonials */}
         <section className="py-24 bg-slate-900 relative overflow-hidden">
           <div className="absolute inset-0">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px]" />
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px]" />
           </div>
           
@@ -774,7 +774,7 @@ const Index = () => {
                   </div>
                   <p className="text-white/80 text-lg mb-6 leading-relaxed">"{testimonial.text}"</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/90 flex items-center justify-center text-white font-bold text-lg">
                       {testimonial.name.charAt(0)}
                     </div>
                     <div>
@@ -793,7 +793,7 @@ const Index = () => {
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div 
               {...fadeInUp}
-              className="relative bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-[2rem] p-12 sm:p-16 text-center overflow-hidden"
+              className="relative bg-gradient-to-br from-primary via-primary/80 to-primary/60 rounded-[2rem] p-12 sm:p-16 text-center overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
@@ -809,7 +809,7 @@ const Index = () => {
                   to="/login"
                   className="group inline-flex items-center gap-3 bg-white text-slate-800 font-black text-lg px-12 py-5 rounded-2xl hover:bg-slate-50 transition-all shadow-2xl hover:-translate-y-1"
                 >
-                  <Sparkles className="w-6 h-6 text-emerald-500" />
+                  <Sparkles className="w-6 h-6 text-primary" />
                   سجل مجانًا
                   <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 </Link>
@@ -903,7 +903,7 @@ const Index = () => {
           {/* Quick Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "مادة", value: subjects.length, icon: BookOpen, color: "text-emerald-400" },
+              { label: "مادة", value: subjects.length, icon: BookOpen, color: "text-primary/70" },
               { label: "كورس", value: courses.length, icon: Layers, color: "text-purple-400" },
               { label: "محاضرة", value: totalLectures, icon: Video, color: "text-blue-400" },
               { label: "معلم", value: uniqueTeachers, icon: Award, color: "text-amber-400" },
@@ -915,7 +915,7 @@ const Index = () => {
                 transition={{ delay: i * 0.1 }}
                 className="bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-white/10"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-3">
                   <stat.icon className={`w-5 h-5 ${stat.color}`} />
                 </div>
                 <p className="text-2xl font-black text-white">{stat.value}</p>
@@ -1047,7 +1047,7 @@ export default Index;
 
 // ─── HOME BLOCK RENDERER ───────────────────────────────────────────────────────
 const blockStyles: Record<string, { bg: string; border: string; badge: string }> = {
-  hero: { bg: "bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-900", border: "border-slate-700", badge: "bg-emerald-500" },
+  hero: { bg: "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900", border: "border-slate-700", badge: "bg-primary" },
   post: { bg: "bg-white", border: "border-gray-100", badge: "bg-blue-500" },
   offer: { bg: "bg-gradient-to-r from-amber-50 to-orange-50", border: "border-amber-200", badge: "bg-amber-500" },
   featured: { bg: "bg-gradient-to-r from-purple-50 to-pink-50", border: "border-purple-200", badge: "bg-purple-500" },
@@ -1098,7 +1098,7 @@ function HomeBlockRenderer({ block }: { block: any }) {
           <p className={`text-sm leading-relaxed ${isDark ? "text-white/70" : "text-gray-600"}`}>{block.content}</p>
         )}
         {block.link_url && (
-          <p className={`text-sm font-bold mt-3 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+          <p className={`text-sm font-bold mt-3 ${isDark ? "text-primary/70" : "text-primary"}`}>
             اكتشف المزيد ←
           </p>
         )}

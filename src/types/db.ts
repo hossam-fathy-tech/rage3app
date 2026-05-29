@@ -219,6 +219,49 @@ export interface Summary {
 
 // ─── HOME BLOCKS ────────────────────────────────────────────────────────────────
 
+// ─── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+
+export type NotificationType = "video" | "lecture" | "course" | "file" | "questions" | "teacher_content" | "admin_announcement" | "offer" | "platform_update" | "maintenance";
+
+export type NotificationPriority = "normal" | "important" | "urgent";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  target_type: "all" | "track" | "subject" | "teacher" | "user";
+  target_id: string | null;
+  priority: NotificationPriority;
+  is_pinned: boolean;
+  created_at: string;
+}
+
+export interface UserNotification {
+  id: string;
+  user_id: string;
+  notification_id: string;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+  notification?: AppNotification;
+}
+
+export interface NotificationSetting {
+  id: string;
+  user_id: string;
+  notify_videos: boolean;
+  notify_lectures: boolean;
+  notify_courses: boolean;
+  notify_files: boolean;
+  notify_questions: boolean;
+  notify_teacher_content: boolean;
+  notify_admin: boolean;
+  notify_offers: boolean;
+  notify_maintenance: boolean;
+  created_at: string;
+}
+
 export interface HomeBlock {
   id: string;
   type: 'hero' | 'post' | 'offer' | 'featured' | 'announcement';

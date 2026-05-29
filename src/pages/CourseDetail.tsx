@@ -3,11 +3,13 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight, BookMarked, PlayCircle, ChevronLeft, Loader2,
   CheckCircle2, Circle, ExternalLink, Link2, FileText, Wallet, Lock,
-  HelpCircle, Download,
+  HelpCircle, Download, Timer,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
+import BottomNav from "@/components/layout/BottomNav";
 import LectureList from "@/components/features/LectureList";
-import YouTubePlayer from "@/components/features/YouTubePlayer";
+import VideoPlayer from "@/components/features/VideoPlayer";
+import FocusTimer from "@/components/features/FocusTimer";
 import {
   useCourse, useLectures, useUserProgress, useToggleProgress,
   useVideoChapters, useVideoLinks, useQuestions, useUserAnswers, useSummaries, useSubmitAnswer,
@@ -61,7 +63,6 @@ interface LessonPanelProps {
 function LessonPanel({
   lesson, lectureTitle, isCompleted, isPending, isLoggedIn, onToggleComplete,
 }: LessonPanelProps) {
-  const youtubeId = lesson.youtube_video_id || extractYouTubeId(lesson.video_url || "");
   const { data: chapters = [] } = useVideoChapters(lesson.id);
   const { data: links = [] } = useVideoLinks(lesson.id);
 
@@ -69,19 +70,12 @@ function LessonPanel({
     <div className="flex flex-col gap-4">
       {/* Player */}
       <div className="rounded-2xl overflow-hidden shadow-xl bg-black">
-        {youtubeId ? (
-          <YouTubePlayer
-            key={lesson.id}
-            videoId={youtubeId}
-            title={lesson.title}
-            chapters={chapters}
-          />
-        ) : lesson.video_url ? (
-          <video
+        {lesson.video_url ? (
+          <VideoPlayer
             key={lesson.id}
             src={lesson.video_url}
-            controls
-            className="w-full aspect-video"
+            title={lesson.title}
+            chapters={chapters}
           />
         ) : (
           <div className="aspect-video flex items-center justify-center">
@@ -173,6 +167,7 @@ const CourseDetail = () => {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [checkingEnrollment, setCheckingEnrollment] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [showFocusTimer, setShowFocusTimer] = useState(false);
   
   // Discount State
   const [discountCode, setDiscountCode] = useState("");
@@ -385,7 +380,7 @@ const CourseDetail = () => {
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <Header />
-      <main className="lg:mr-[260px] pt-16">
+      <main className="lg:mr-[260px] pt-16 pb-24 lg:pb-0 px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="bg-white border-b border-border px-4 sm:px-6 lg:px-8 py-3">
           <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm text-muted-foreground">
@@ -616,6 +611,17 @@ const CourseDetail = () => {
           </div>
         </div>
       </main>
+      <BottomNav />
+      {/* Focus Timer Toggle Button */}
+      <button
+        onClick={() => setShowFocusTimer(!showFocusTimer)}
+        className={`fixed bottom-24 lg:bottom-4 left-4 z-40 p-3 rounded-xl shadow-lg transition-all ${
+          showFocusTimer ? "bg-primary text-white" : "bg-white text-primary border border-border/60 hover:shadow-xl"
+        }`}
+      >
+        <Timer className="w-5 h-5" />
+      </button>
+      {showFocusTimer && <FocusTimer onClose={() => setShowFocusTimer(false)} />}
     </div>
   );
 };
@@ -728,15 +734,15 @@ function QuestionsPanel({ lectureId }: { lectureId: string }) {
   return (
     <div>
       {totalCount > 0 && (
-        <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200">
+        <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-primary/5 to-primary/5 border border-primary/20">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-emerald-700">نتيجتك في المحاضرة دي</span>
-            <span className="text-2xl font-black text-emerald-600">{score}%</span>
+            <span className="text-sm font-bold text-primary">نتيجتك في المحاضرة دي</span>
+            <span className="text-2xl font-black text-primary">{score}%</span>
           </div>
-          <div className="w-full h-2.5 bg-emerald-200 rounded-full">
-            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" style={{ width: `${score}%` }} />
+          <div className="w-full h-2.5 bg-primary/20 rounded-full">
+            <div className="h-full bg-gradient-to-r from-primary to-primary rounded-full transition-all duration-500" style={{ width: `${score}%` }} />
           </div>
-          <p className="text-xs text-emerald-600 mt-2">{correctCount} إجابة صحيحة من {totalCount}</p>
+          <p className="text-xs text-primary mt-2">{correctCount} إجابة صحيحة من {totalCount}</p>
         </div>
       )}
 
@@ -808,7 +814,7 @@ function QuestionsPanel({ lectureId }: { lectureId: string }) {
                         key={opt.key}
                         className={`p-3 rounded-xl border-2 text-sm ${
                           isCorrect
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-semibold"
+                            ? "border-primary bg-primary/5 text-primary font-semibold"
                             : isSelected
                             ? "border-red-500 bg-red-50 text-red-700 font-semibold"
                             : "border-gray-100 text-gray-400"
@@ -816,7 +822,7 @@ function QuestionsPanel({ lectureId }: { lectureId: string }) {
                       >
                         <span className="font-bold ml-2 text-base">{opt.key.toUpperCase()})</span>
                         {opt.label}
-                        {isCorrect && <span className="mr-2 text-emerald-600">✓</span>}
+                        {isCorrect && <span className="mr-2 text-primary">✓</span>}
                         {isSelected && !isCorrect && <span className="mr-2 text-red-600">✗</span>}
                       </div>
                     );
@@ -825,9 +831,9 @@ function QuestionsPanel({ lectureId }: { lectureId: string }) {
               )}
 
               {answered && q.explanation && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                  <p className="text-xs font-bold text-blue-700 mb-1">💡 الشرح:</p>
-                  <p className="text-sm text-blue-600 leading-relaxed">{q.explanation}</p>
+                <div className="mt-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                  <p className="text-xs font-bold text-primary mb-1">💡 الشرح:</p>
+                  <p className="text-sm text-primary leading-relaxed">{q.explanation}</p>
                 </div>
               )}
             </div>

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import type { Subject, Teacher, Course, Lecture, Lesson, Challenge, ChallengeTask, ChallengeTaskLesson, ChallengeTaskFile, VideoChapter, VideoLink, AppUser } from "@/types/db";
+import type { Subject, Teacher, Course, Lecture, Lesson, Challenge, ChallengeTask, ChallengeTaskLesson, ChallengeTaskFile, VideoChapter, VideoLink, AppUser, AppNotification, UserNotification, NotificationSetting, NotificationType, NotificationPriority } from "@/types/db";
 
 // ─── SUBJECTS ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +117,120 @@ export function useDeleteTeacher() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teachers"] }),
+  });
+}
+
+// ─── TEACHER RATINGS ──────────────────────────────────────────────────────
+export function useTeacherRating(teacherId: string, userId?: string) {
+  return useQuery({
+    queryKey: ["teacher-rating", teacherId, userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const { data } = await supabase.from("teacher_ratings").select("rating").eq("teacher_id", teacherId).eq("user_id", userId).maybeSingle();
+      return data;
+    },
+    enabled: !!teacherId && !!userId,
+  });
+}
+
+export function useRateTeacher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teacherId, userId, rating }: { teacherId: string; userId: string; rating: number }) => {
+      const { error } = await supabase.from("teacher_ratings").upsert(
+        { teacher_id: teacherId, user_id: userId, rating },
+        { onConflict: "teacher_id,user_id" }
+      );
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["teacher-rating", vars.teacherId] });
+      qc.invalidateQueries({ queryKey: ["teachers"] });
+    },
+  });
+}
+
+// ─── TEACHER FOLLOWERS ────────────────────────────────────────────────────
+export function useIsFollowingTeacher(teacherId: string, userId?: string) {
+  return useQuery({
+    queryKey: ["teacher-follow", teacherId, userId],
+    queryFn: async () => {
+      if (!userId) return false;
+      const { data } = await supabase.from("teacher_followers").select("id").eq("teacher_id", teacherId).eq("user_id", userId).maybeSingle();
+      return !!data;
+    },
+    enabled: !!teacherId && !!userId,
+  });
+}
+
+export function useToggleFollowTeacher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teacherId, userId, isFollowing }: { teacherId: string; userId: string; isFollowing: boolean }) => {
+      if (isFollowing) {
+        const { error } = await supabase.from("teacher_followers").delete().eq("teacher_id", teacherId).eq("user_id", userId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("teacher_followers").insert({ teacher_id: teacherId, user_id: userId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["teacher-follow", vars.teacherId] });
+      qc.invalidateQueries({ queryKey: ["followed-teachers"] });
+    },
+  });
+}
+
+export function useFollowedTeachers(userId?: string) {
+  return useQuery({
+    queryKey: ["followed-teachers", userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from("teacher_followers")
+        .select(`*, teacher:teachers(*)`)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useFollowNotifSetting(teacherId: string, userId?: string) {
+  return useQuery({
+    queryKey: ["follow-notif-setting", teacherId, userId],
+    queryFn: async (): Promise<string | null> => {
+      if (!userId) return null;
+      const { data } = await supabase
+        .from("teacher_followers")
+        .select("notify_setting")
+        .eq("teacher_id", teacherId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      return data?.notify_setting ?? "all";
+    },
+    enabled: !!teacherId && !!userId,
+  });
+}
+
+export function useUpdateFollowNotifSetting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teacherId, userId, notify_setting }: { teacherId: string; userId: string; notify_setting: string }) => {
+      const { error } = await supabase
+        .from("teacher_followers")
+        .update({ notify_setting })
+        .eq("teacher_id", teacherId)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["follow-notif-setting", vars.teacherId] });
+      qc.invalidateQueries({ queryKey: ["followed-teachers"] });
+    },
   });
 }
 
@@ -1306,5 +1420,248 @@ export function useDeleteHomeBlock() {
       qc.invalidateQueries({ queryKey: ["home-blocks"] });
       qc.invalidateQueries({ queryKey: ["admin-home-blocks"] });
     },
+  });
+}
+
+// ─── NOTIFICATIONS SYSTEM ──────────────────────────────────────────────────────
+
+export function useUserNotifications(userId?: string) {
+  return useQuery({
+    queryKey: ["user-notifications", userId],
+    queryFn: async (): Promise<(UserNotification & { notification: AppNotification })[]> => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from("user_notifications")
+        .select(`*, notification:notifications(*)`)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data ?? []) as any;
+    },
+    enabled: !!userId,
+    refetchInterval: 30000, // Poll every 30s as fallback
+  });
+}
+
+export function useUnreadCount(userId?: string) {
+  return useQuery({
+    queryKey: ["unread-count", userId],
+    queryFn: async (): Promise<number> => {
+      if (!userId) return 0;
+      const { count, error } = await supabase
+        .from("user_notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+}
+
+export function useMarkAsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userNotifId: string) => {
+      const { error } = await supabase
+        .from("user_notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("id", userNotifId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-notifications"] });
+      qc.invalidateQueries({ queryKey: ["unread-count"] });
+    },
+  });
+}
+
+export function useMarkAllAsRead(userId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!userId) return;
+      const { error } = await supabase
+        .from("user_notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-notifications"] });
+      qc.invalidateQueries({ queryKey: ["unread-count"] });
+    },
+  });
+}
+
+// ─── ADMIN: إنشاء إشعار ─────────────────────────────────────────────────────
+
+export function useCreateNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      type: NotificationType;
+      title: string;
+      message: string;
+      target_type: "all" | "track" | "subject" | "teacher" | "user";
+      target_id?: string;
+      priority?: NotificationPriority;
+      is_pinned?: boolean;
+    }) => {
+      // 0. Get the admin's user ID (needed because notifications.user_id is NOT NULL)
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id;
+      if (!adminId) throw new Error("يجب تسجيل الدخول كأدمن");
+
+      // 1. Insert the notification
+      const { data: notif, error: notifErr } = await supabase
+        .from("notifications")
+        .insert({
+          user_id: adminId,
+          type: payload.type,
+          title: payload.title,
+          message: payload.message,
+          target_type: payload.target_type,
+          target_id: payload.target_id || null,
+          priority: payload.priority || "normal",
+          is_pinned: payload.is_pinned || false,
+        })
+        .select()
+        .single();
+      if (notifErr) throw notifErr;
+
+      // 2. Get targeted users based on target_type
+      let userIds: string[] = [];
+      if (payload.target_type === "all") {
+        // Try profiles first, then fall back to users table
+        const { data: fromProfiles, error: pErr } = await supabase.from("profiles").select("id");
+        if (!pErr && fromProfiles && fromProfiles.length > 0) {
+          userIds = fromProfiles.map((p: any) => p.id);
+        } else {
+          const { data: fromUsers } = await supabase.from("users").select("id");
+          userIds = (fromUsers ?? []).map((u: any) => u.id);
+        }
+      } else if (payload.target_type === "user" && payload.target_id) {
+        userIds = [payload.target_id];
+      } else if (payload.target_type === "track" && payload.target_id) {
+        const { data } = await supabase.from("profiles").select("id").eq("track", payload.target_id);
+        userIds = (data ?? []).map((p: any) => p.id);
+      } else if (payload.target_type === "subject" && payload.target_id) {
+        const { data: courses } = await supabase
+          .from("courses")
+          .select("id")
+          .eq("subject_id", payload.target_id);
+        const courseIds = (courses ?? []).map((c: any) => c.id);
+        if (courseIds.length > 0) {
+          const { data: purchases } = await supabase
+            .from("course_purchases")
+            .select("user_id")
+            .in("course_id", courseIds);
+          userIds = [...new Set((purchases ?? []).map((p: any) => p.user_id))];
+        }
+      } else if (payload.target_type === "teacher" && payload.target_id) {
+        const { data } = await supabase
+          .from("teacher_followers")
+          .select("user_id")
+          .eq("teacher_id", payload.target_id);
+        userIds = (data ?? []).map((f: any) => f.user_id);
+      }
+
+      // 3. Insert user_notifications for all targeted users
+      if (userIds.length === 0) {
+        throw new Error("مفيش مستخدمين مستهدفين — تأكد من وجود مستخدمين في profiles أو users");
+      }
+      const rows = userIds.map((uid) => ({
+        user_id: uid,
+        notification_id: notif.id,
+        is_read: false,
+      }));
+      const { error: relErr } = await supabase.from("user_notifications").insert(rows);
+      if (relErr) {
+        console.error("user_notifications insert error:", relErr);
+        throw new Error(`فشل إرسال الإشعار للمستخدمين: ${relErr.message}`);
+      }
+
+      return { notification: notif, userCount: rows.length };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-notifications"] });
+    },
+  });
+}
+
+export function useAdminNotifications() {
+  return useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: async (): Promise<AppNotification[]> => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("notifications").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
+  });
+}
+
+export function useTogglePinNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_pinned }: { id: string; is_pinned: boolean }) => {
+      const { error } = await supabase.from("notifications").update({ is_pinned }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-notifications"] }),
+  });
+}
+
+// ─── NOTIFICATION SETTINGS ────────────────────────────────────────────────
+
+export function useNotificationSettings(userId?: string) {
+  return useQuery({
+    queryKey: ["notification-settings", userId],
+    queryFn: async (): Promise<NotificationSetting | null> => {
+      if (!userId) return null;
+      const { data, error } = await supabase
+        .from("notification_settings")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useUpsertNotificationSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (settings: Partial<NotificationSetting> & { user_id: string }) => {
+      const { data, error } = await supabase
+        .from("notification_settings")
+        .upsert(settings, { onConflict: "user_id" })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notification-settings"] }),
   });
 }

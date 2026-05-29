@@ -21,12 +21,137 @@ import UserProfile from "./pages/UserProfile";
 import NotFound from "./pages/NotFound";
 import QuestionsPage from "./pages/QuestionsPage";
 import SummariesPage from "./pages/SummariesPage";
+import Teachers from "./pages/Teachers";
+import FollowingTeachers from "./pages/FollowingTeachers";
 import BottomNav from "./components/layout/BottomNav";
-import { Lock, Eye, EyeOff, Wrench } from "lucide-react";
+import { Lock, Eye, EyeOff, Wrench, KeyRound, CheckCircle2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-const ADMIN_PASSWORD = "hos01017251025SAM#2462008";
+const MAINTENANCE_CODES = ["ADMIN2024", "RA7A3", "DEV001", "MAINTENANCE_BYPASS"];
+
+function MaintenanceGuard({ children, maintenanceMode }: { children: React.ReactNode; maintenanceMode: boolean }) {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  if (loading) return null;
+
+  const isAdmin = user?.role === "admin";
+  const hasBypassCode = localStorage.getItem("maintenance_bypass") === "true";
+
+  if (maintenanceMode && !isAdmin && !hasBypassCode) {
+    return <MaintenanceScreen />;
+  }
+
+  // Admin or code holder — redirect away from maintenance page to home
+  if (window.location.pathname === "/maintenance") {
+    navigate("/", { replace: true });
+  }
+
+  return <>{children}</>;
+}
+
+function MaintenanceScreen() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeSuccess, setCodeSuccess] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+
+  const isAlreadyBypassed = localStorage.getItem("maintenance_bypass") === "true";
+
+  useEffect(() => {
+    if (isAlreadyBypassed || (user && user.role === "admin")) {
+      navigate("/");
+    }
+  }, [user, isAlreadyBypassed, navigate]);
+
+  const handleCodeSubmit = () => {
+    setCodeError("");
+    if (!code.trim()) { setCodeError("ادخل الكود"); return; }
+    if (MAINTENANCE_CODES.includes(code.trim().toUpperCase())) {
+      localStorage.setItem("maintenance_bypass", "true");
+      setCodeSuccess(true);
+      setTimeout(() => navigate("/"), 1000);
+    } else {
+      setCodeError("الكود غير صحيح");
+    }
+  };
+
+  if (codeSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0F172A]" dir="rtl">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-primary" />
+          </div>
+          <p className="text-white font-bold text-lg">تم الدخول بنجاح</p>
+          <p className="text-white/40 text-sm mt-1">جاري التحويل...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0F172A] relative overflow-hidden" dir="rtl">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/3 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative z-10 text-center p-8 max-w-md mx-auto w-full">
+        <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <Wrench className="w-10 h-10 text-primary" />
+        </div>
+
+        <h1 className="text-2xl font-bold text-white mb-2">المنصة تحت الصيانة</h1>
+        <p className="text-white/40 text-sm mb-8">نقوم بتحسينات مهمة. سنعود قريبًا.</p>
+
+        {/* Access Code Input */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-5 border border-white/10 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <KeyRound className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-white/70">كود الدخول الخاص</span>
+          </div>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showCode ? "text" : "password"}
+                value={code}
+                onChange={(e) => { setCode(e.target.value); setCodeError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleCodeSubmit()}
+                placeholder="أدخل كود الصيانة"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+                dir="ltr"
+              />
+              <button
+                onClick={() => setShowCode(!showCode)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+              >
+                {showCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <button
+              onClick={handleCodeSubmit}
+              className="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-all"
+            >
+              دخول
+            </button>
+          </div>
+          {codeError && <p className="text-red-400 text-xs mt-2">{codeError}</p>}
+        </div>
+
+        {/* Contact */}
+        <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+          <p className="text-xs text-white/30">
+            للاستفسارات: <a href="mailto:rage3app@gmail.com" className="text-primary/70 hover:text-primary">rage3app@gmail.com</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProtectedAdmin() {
   const { user, loading } = useAuth();
@@ -175,84 +300,44 @@ const App = () => {
     };
   }, []);
 
-  // Show maintenance screen if enabled AND user is not admin (admin can still access /admin)
-  // Note: We allow access to /admin even in maintenance mode so admin can disable it
+  // Show maintenance screen if enabled AND no bypass code
+  // Admin check happens inside AuthProvider
   const isOnAdminRoute = window.location.pathname === "/admin";
+  const hasBypassCode = localStorage.getItem("maintenance_bypass") === "true";
   
-  if (maintenanceMode && !isOnAdminRoute) {
+  if (maintenanceMode && !isOnAdminRoute && !hasBypassCode) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden" dir="rtl">
-        {/* Animated Background Orbs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-        </div>
-
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
-
-        {/* Floating Particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-2 h-2 bg-amber-400/30 rounded-full animate-bounce"
-              style={{
-                left: `${15 + i * 15}%`,
-                top: `${20 + (i % 3) * 25}%`,
-                animationDelay: `${i * 0.3}s`,
-                animationDuration: `${2 + i * 0.5}s`
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Main Content */}
-        <div className="relative z-10 text-center p-8 max-w-lg mx-auto">
-          {/* Animated Icon Container */}
-          <div className="relative mb-8">
-            <div className="w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto shadow-2xl shadow-amber-500/30 animate-pulse">
-              <Wrench className="w-16 h-16 text-white" />
-            </div>
-            {/* Rotating Ring */}
-            <div className="absolute inset-0 w-32 h-32 mx-auto border-4 border-amber-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }} />
-            <div className="absolute inset-0 w-32 h-32 mx-auto border-4 border-dashed border-amber-400/20 rounded-full animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
-          </div>
-
-          {/* Title with Gradient */}
-          <h1 className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-300 to-amber-400 mb-4">
-            المنصة تحت الصيانة
-          </h1>
-
-          {/* Description */}
-          <p className="text-slate-300 text-lg mb-8 leading-relaxed">
-            نقوم ببعض التحسينات والتحديثات المهمة<br />
-            <span className="text-amber-400 font-medium">سنعود أقوى مما كنا! 🚀</span>
-          </p>
-
-          {/* Loading Bar */}
-          <div className="w-full max-w-xs mx-auto mb-8">
-            <div className="flex justify-between text-xs text-slate-400 mb-2">
-              <span>جاري التحديث...</span>
-              <span>99%</span>
-            </div>
-            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full animate-pulse" style={{ width: '99%' }} />
-            </div>
-          </div>
-
-          {/* Contact Info */}
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-slate-700">
-            <p className="text-sm text-slate-400">
-              للاستفسارات الطارئة:
-              <a href="mailto:rage3app@gmail.com" className="text-amber-400 hover:text-amber-300 underline mr-1">
-                rage3app@gmail.com
-              </a>
-            </p>
-          </div>
-        </div>
-      </div>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <MaintenanceGuard maintenanceMode={maintenanceMode}>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner position="top-center" richColors />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/" element={<Index />} />
+                  <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
+                  <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+                  <Route path="/course/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
+                  <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
+                  <Route path="/teacher/:id" element={<ProtectedRoute><TeacherProfile /></ProtectedRoute>} />
+                  <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+                  <Route path="/questions" element={<QuestionsPage />} />
+                  <Route path="/summaries" element={<SummariesPage />} />
+                  <Route path="/teachers" element={<Teachers />} />
+                  <Route path="/following-teachers" element={<ProtectedRoute><FollowingTeachers /></ProtectedRoute>} />
+                  <Route path="/teacher/:id" element={<ProtectedRoute><TeacherProfile /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedAdmin />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <BottomNav />
+              </TooltipProvider>
+            </MaintenanceGuard>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
     );
   }
 
@@ -277,6 +362,9 @@ const App = () => {
               <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
               <Route path="/questions" element={<QuestionsPage />} />
               <Route path="/summaries" element={<SummariesPage />} />
+              <Route path="/teachers" element={<Teachers />} />
+              <Route path="/following-teachers" element={<ProtectedRoute><FollowingTeachers /></ProtectedRoute>} />
+              <Route path="/teacher/:id" element={<ProtectedRoute><TeacherProfile /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedAdmin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
