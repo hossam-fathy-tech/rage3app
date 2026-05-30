@@ -1,9 +1,10 @@
-const CACHE_NAME = "rage3-v1";
+const CACHE_NAME = "rage3-v2";
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
   "/favicon.ico",
+  "/icons/icon.svg",
 ];
 
 // Install — cache static assets
@@ -24,16 +25,31 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first, fallback to cache for navigation
+// Fetch strategy
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // Skip non-GET and Supabase/API requests
+  // Skip non-GET and API requests
   if (request.method !== "GET") return;
   if (request.url.includes("supabase")) return;
   if (request.url.includes("api.")) return;
+  if (request.url.includes("fonts.googleapis.com")) {
+    // Cache-first for Google Fonts
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((response) => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          }).catch(() => new Response("", { status: 503 }));
+        })
+      )
+    );
+    return;
+  }
 
-  // For navigation (HTML pages) — network first, fallback to cached /
+  // For navigation — network first, fallback to cache
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match("/index.html"))
@@ -41,18 +57,39 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For assets (JS, CSS, images) — stale-while-revalidate
+  // For images — cache first, fallback to network
+  if (request.destination === "image") {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((response) => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          }).catch(() => new Response("", { status: 503 }));
+        })
+      )
+    );
+    return;
+  }
+
+  // For assets (JS, CSS) — stale-while-revalidate
   event.respondWith(
     caches.open(CACHE_NAME).then((cache) =>
       cache.match(request).then((cached) => {
         const fetched = fetch(request).then((response) => {
-          if (response.ok) {
-            cache.put(request, response.clone());
-          }
+          if (response.ok) cache.put(request, response.clone());
           return response;
         }).catch(() => cached);
         return cached || fetched;
       })
     )
   );
+});
+
+// Background sync placeholder
+self.addEventListener("sync", (event) => {
+  if (event.tag === "sync-data") {
+    // Future: sync offline actions when back online
+  }
 });

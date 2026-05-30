@@ -15,5 +15,25 @@
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
   ],
+  "shortcuts": [
+    {
+      "name": "المواد الدراسية",
+      "short_name": "المواد",
+      "url": "/subjects",
+      "description": "تصفح المواد الدراسية"
+    },
+    {
+      "name": "الكورسات",
+      "short_name": "الكورسات",
+      "url": "/courses",
+      "description": "تصفح الكورسات المتاحة"
+    },
+    {
+      "name": "محفظتي",
+      "short_name": "المحفظة",
+      "url": "/wallet",
+      "description": "إدارة رصيدك"
+    }
+  ],
   "prefer_related_applications": false
 }
