@@ -1,0 +1,19 @@
+{
+  "name": "راجع - منصة تعليمية للثانوية العامة",
+  "short_name": "راجع",
+  "description": "المنصة التعليمية الأولى لطلاب الثانوية العامة في مصر",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1220",
+  "theme_color": "#1DA1F2",
+  "dir": "rtl",
+  "lang": "ar",
+  "scope": "/",
+  "categories": ["education"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ],
+  "prefer_related_applications": false
+}
